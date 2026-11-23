@@ -829,7 +829,7 @@ function hhSync(c){['etq','sort'].forEach(k=>{const old=hhRows(c,k);const novo=h
 function hov(c,k,r,f){const own=r.ov&&r.ov[f]!=null&&r.ov[f]!=='';const base=f==='ini'?r.cIni:f==='fim'?r.cFim:r.cRec;const v=f==='rec'?(num(r.rec)==null?'':num(r.rec)):(r[f]||'');
   return `<input ${f==='rec'?'type="number" step="1" inputmode="numeric"':'type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="hh:mm"'} data-hov="${c}|${k}|${r.gi}|${f}" class="${f==='rec'?'hhrec':'tm'} ${own?'nsown':''}" value="${esc(v)}" title="${own?'Ajustado aqui (Ciclo: '+(base??'–')+'). Apague para voltar ao do Ciclo.':'Vem do Ciclo — pode ajustar aqui'}">`;}
 function vHH(){
-  const pl=0;
+  const c=S.cicloSel;
   const auto=hhAuto(c);if(auto)hhSync(c);
   let h=`<div class="${temaCls()}"><div class="hhbar">${seg()}<div class="row" style="gap:10px;align-items:center"><span class="seg"><button data-act="hh-auto" data-c="${c}" data-v="1" class="${auto?'on':''}">🔗 Puxar do Ciclo</button><button data-act="hh-auto" data-c="${c}" data-v="0" class="${auto?'':'on'}">✎ Manual</button></span></div><span class="note" style="margin:0;flex-basis:100%">${auto?'Horário, bancadas/HC, meta/h, minutos e volumetria vêm da aba <b>Ciclo ('+c+')</b>. Dá para <b>ajustar o horário e as bancadas/HC</b> aqui (fica roxo; apague para voltar ao do Ciclo). Horário: digite só os números, ex. <b>520</b> → 05:20.':'Modo manual: tudo aqui é preenchido por você e não puxa da aba Ciclo.'}</span></div>`;
   [['etq','Etiquetagem','Bancadas','etq','🏷️'],['sort','Sorting','HC','sor','📦']].forEach(([k,nome,rec,cls,ic])=>{
