@@ -409,6 +409,7 @@ body.dark{background:#0e3f80!important}
 .hhwrap .hhkpis b[style*="var(--etq)"]{color:#9fd0ff!important}
 .hhwrap table.big td,.hhwrap table.big th{padding-left:3px;padding-right:3px}.hhwrap table.big td{font-size:13px}
 .hhwrap table.big input.tm{width:50px!important;min-width:50px!important;font-size:13px!important}.hhwrap table.big td{font-size:12.5px}.hhwrap table.big th{font-size:10px}.hhwrap table.big input:not(.tm){min-width:30px!important;font-size:13px!important}
+.hhlido{font-size:11px;font-weight:700;color:var(--mute);margin-top:2px}
 </style>
 </head>
 <body>
@@ -598,9 +599,8 @@ function expStatus(c,fim){const p=(S.expPrev||{})[c]||{};const a=p.expedicao||p.
 function legend(items){return `<div class="row" style="gap:14px;font-size:12.5px;color:#555;font-weight:600;margin-bottom:6px">${items.map(([n,c,dash])=>`<span style="display:inline-flex;align-items:center;gap:6px"><i style="display:inline-block;width:14px;height:${dash?0:10}px;border-radius:3px;background:${dash?'none':c};border-top:${dash?'2px dashed '+c:'0'}"></i>${n}</span>`).join('')}</div>`;}
 function ring(p,col,size){const r=size/2-7,C=2*Math.PI*r,v=Math.max(0,Math.min(1,p/100));
   return `<svg width="${size}" height="${size}" viewBox="0 0 ${size} ${size}"><circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="#e8edf5" stroke-width="9"/>${v>0?'':'<!--'}<circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${col}" stroke-width="9" stroke-linecap="round" stroke-dasharray="${C*v} ${C}" transform="rotate(-90 ${size/2} ${size/2})"/>${v>0?'':'-->'}<text x="50%" y="48%" text-anchor="middle" font-size="${size/5}" font-weight="800" fill="#14213d">${Math.round(p)}%</text><text x="50%" y="66%" text-anchor="middle" font-size="10" fill="#64748b">do volume</text></svg>`;}
-function hhReal(k,rows,i){const v=num(rows[i].real);if(v==null)return null;if(k!=='sort')return v;for(let j=i-1;j>=0;j--){const p=num(rows[j].real);if(p!=null)return v-p;}return v;}
 function hhCalc(c,k){if(hhAuto(c))hhSync(c);const rows=hhRows(c,k);let aP=0,aR=0,plR=0,any=false;
-  const L=rows.map((r,i)=>{const full=Math.round(dur(r.ini,r.fim)*60);const mi=num(r.min)!=null?Math.min(num(r.min),full||num(r.min)):full;const pl=Math.round((num(r.rec)||0)*(num(r.mt)||0)*mi/60);aP+=pl;const rz=hhReal(k,rows,i);if(rz!=null){aR+=rz;plR+=pl;any=true;}return {lbl:(r.ini||'')+'–'+(r.fim||''),ini:r.ini,pl,rz,rec:num(r.rec)||0};});
+  const L=rows.map(r=>{const full=Math.round(dur(r.ini,r.fim)*60);const mi=num(r.min)!=null?Math.min(num(r.min),full||num(r.min)):full;const pl=Math.round((num(r.rec)||0)*(num(r.mt)||0)*mi/60);aP+=pl;const rz=num(r.real);if(rz!=null){aR+=rz;plR+=pl;any=true;}return {lbl:(r.ini||'')+'–'+(r.fim||''),ini:r.ini,pl,rz,rec:num(r.rec)||0};});
   return {L,aP,aR,plR,any,vol:hhVol(c,k),pct:any&&plR?Math.round(aR/plR*100):null};}
 function dhhBars(L,col){
   const W=560,H=250,pl=44,pb=40,pt=26,n=Math.max(1,L.length);const mx=Math.max(1,...L.map(x=>Math.max(x.pl,x.rz||0)))*1.12;
@@ -825,7 +825,7 @@ function hhAuto(c){if(!S.hhAuto)S.hhAuto={};return S.hhAuto[c]!==false;}
 function hhVolCiclo(c,k){const v=S.volume[c]||{};return k==='etq'?num(v.etq):(num(v.pesca)!=null?num(v.pesca):num(v.etq));}
 function hhVol(c,k){if(!S.hhVol)S.hhVol={};if(!S.hhVol[c])S.hhVol[c]={etq:null,sort:null};const own=num(S.hhVol[c][k]);return own!=null?own:(hhAuto(c)?hhVolCiclo(c,k):null);}
 function hhSync(c){['etq','sort'].forEach(k=>{const old=hhRows(c,k);const novo=hhPuxar(c,k);
-  novo.forEach((r,i)=>{const m=old.find(o=>o.gi!=null&&o.gi===r.gi)||old.find(o=>o.ini===r.ini&&o.fim===r.fim)||old.find(o=>o.ini===r.ini)||(old[i]&&!old[i].ini?old[i]:null);if(m&&m.real!=null)r.real=m.real;});
+  novo.forEach((r,i)=>{const m=old.find(o=>o.gi!=null&&o.gi===r.gi)||old.find(o=>o.ini===r.ini&&o.fim===r.fim)||old.find(o=>o.ini===r.ini)||(old[i]&&!old[i].ini?old[i]:null);if(m&&m.real!=null){r.real=m.real;r.lido=m.lido;}});
   S.hh[c][k]=novo;});}
 function hov(c,k,r,f){const own=r.ov&&r.ov[f]!=null&&r.ov[f]!=='';const base=f==='ini'?r.cIni:f==='fim'?r.cFim:r.cRec;const v=f==='rec'?(num(r.rec)==null?'':num(r.rec)):(r[f]||'');
   return `<input ${f==='rec'?'type="number" step="1" inputmode="numeric"':'type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="hh:mm"'} data-hov="${c}|${k}|${r.gi}|${f}" class="${f==='rec'?'hhrec':'tm'} ${own?'nsown':''}" value="${esc(v)}" title="${own?'Ajustado aqui (Ciclo: '+(base??'–')+'). Apague para voltar ao do Ciclo.':'Vem do Ciclo — pode ajustar aqui'}">`;}
@@ -836,7 +836,7 @@ function vHH(){
   [['etq','Etiquetagem','Bancadas','etq','🏷️'],['sort','Sorting','HC','sor','📦']].forEach(([k,nome,rec,cls,ic])=>{
     const vol=hhVol(c,k);const rows=hhRows(c,k);let aP=0,aR=0,anyR=false,plR=0;
     const linhas=rows.map((r,i)=>{const full=Math.round(dur(r.ini,r.fim)*60);const mi=num(r.min)!=null?Math.min(num(r.min),full||num(r.min)):full;
-      const pl=Math.round((num(r.rec)||0)*(num(r.mt)||0)*mi/60);aP+=pl;const rz=hhReal(k,rows,i);if(rz!=null){aR+=rz;anyR=true;plR+=pl;}
+      const pl=Math.round((num(r.rec)||0)*(num(r.mt)||0)*mi/60);aP+=pl;const rz=num(r.real);if(rz!=null){aR+=rz;anyR=true;plR+=pl;}
       return {r,i,full,mi,pl,aP,rz,aR:anyR?aR:null};});
     const pct=anyR&&plR?Math.round(aR/plR*100):null,pv=vol?Math.min(100,aR/vol*100):0;
     h+=`<div class="card hhcard hh-${cls}"><div class="hhhead"><div class="hhtit"><span class="pill" style="background:var(--${cls});color:#fff">${c}</span> ${ic} ${nome} <span class="tag">hora a hora</span></div>
@@ -849,12 +849,12 @@ function vHH(){
        <div><span>${vol&&aR>=vol?'Volume':'Falta para o volume'}</span><b class="${vol&&aR>=vol?'pos':''}">${vol==null?'–':aR>=vol?'atingido ✓':fmt(vol-aR)}</b></div>
       </div>
       <div class="hhprog"><div class="bar" style="height:10px;margin:0"><i style="width:${pv}%;background:var(--${cls})"></i></div><span>${vol?pv.toFixed(0)+'% do volume':''}</span></div>
-      <div class="tw"><table class="hhtab"><thead><tr><th>Horário</th><th>Min.</th><th>${rec}</th><th>Meta/h</th><th>Planejado</th><th>Acum. plan.</th><th class="hhreal">${k==='sort'?'Contador acumulado ✎':'Realizado ✎'}</th><th>${k==='sort'?'Real da hora':'Acum. real'}</th><th>Diferença</th><th>%</th></tr></thead><tbody>`;
+      <div class="tw"><table class="hhtab"><thead><tr><th>Horário</th><th>Min.</th><th>${rec}</th><th>Meta/h</th><th>Planejado</th><th>Acum. plan.</th><th class="hhreal">Realizado ✎</th><th>Acum. real</th><th>Diferença</th><th>%</th></tr></thead><tbody>`;
     linhas.forEach(({r,i,full,mi,pl,aP:ap,rz,aR:ar})=>{const b=`hh.${c}.${k}.${i}`;const pc=rz!=null&&pl?Math.round(rz/pl*100):null;
       h+=`<tr class="${rz==null?'':pc>=100?'hhok':'hhbad'}">`+(auto?`<td><div class="hhtm">${hov(c,k,r,'ini')}<span>–</span>${hov(c,k,r,'fim')}</div></td><td class="num">${fmt(mi)}</td><td><div style="max-width:80px;margin:auto">${hov(c,k,r,'rec')}</div></td><td class="num">${fmt(num(r.mt)||0)}</td>`
         :`<td><div class="hhtm">${inp(b+'.ini','time')}<span>–</span>${inp(b+'.fim','time')}</div></td><td><div style="max-width:70px;margin:auto">${inp(b+'.min','n','',full)}</div></td><td><div style="max-width:80px;margin:auto">${inp(b+'.rec','n','','0')}</div></td><td><div style="max-width:90px;margin:auto">${inp(b+'.mt','n','','0')}</div></td>`)
-      +`<td class="num"><b>${fmt(pl)}</b></td><td class="num" style="color:#64748b">${fmt(ap)}</td><td class="hhreal"><div style="max-width:120px;margin:auto">${inp(b+'.real','n','w')}</div></td>${k==='sort'?`<td class="num"><b class="${rz!=null&&rz<0?'neg':''}">${rz==null?'–':fmt(rz)}</b></td>`:`<td class="num" style="color:#64748b">${ar==null||rz==null?'–':fmt(ar)}</td>`}${difCell(rz,pl)}<td class="num">${pc==null?'–':`<b style="color:${pc>=100?'#1d4ed8':'#b91c1c'}">${pc}%</b>`}</td></tr>`;});
-    h+=`</tbody><tfoot><tr><td class="lbl" colspan="4">Total</td><td>${fmt(aP)}</td><td></td><td>${k==='sort'?'':(anyR?fmt(aR):'–')}</td><td>${k==='sort'&&anyR?fmt(aR):''}</td><td></td><td>${pct==null?'–':pct+'%'}</td></tr></tfoot></table></div>${k==='sort'?'<div class="note">No Sorting, lance o <b>valor acumulado do contador</b> em cada hora. O app subtrai o lançamento da hora anterior e mostra o <b>Real da hora</b> (ex.: 1ª hora 1.500, 2ª hora 4.200 → real da 2ª hora = 2.700).</div>':''}
+      +`<td class="num"><b>${fmt(pl)}</b></td><td class="num" style="color:#64748b">${fmt(ap)}</td><td class="hhreal"><div style="max-width:120px;margin:auto">${inp(b+'.real','n','w')}</div></td><td class="num" style="color:#64748b">${ar==null||rz==null?'–':fmt(ar)}</td>${difCell(rz,pl)}<td class="num">${pc==null?'–':`<b style="color:${pc>=100?'#1d4ed8':'#b91c1c'}">${pc}%</b>`}</td></tr>`;});
+    h+=`</tbody><tfoot><tr><td class="lbl" colspan="4">Total</td><td>${fmt(aP)}</td><td></td><td>${anyR?fmt(aR):'–'}</td><td></td><td></td><td>${pct==null?'–':pct+'%'}</td></tr></tfoot></table></div>${k==='sort'?'<div class="note">Sorting: da <b>2ª hora em diante</b>, digite o <b>valor acumulado</b> no próprio campo do Realizado — ao sair do campo o app desconta o que já foi lançado nas horas anteriores e deixa só o real da hora (ex.: 1ª hora 1.500; na 2ª digite 4.200 → fica 2.700).</div>':''}
       ${auto?(rows.length?'':`<div class="note">Nenhum horário de ${nome.toLowerCase()} preenchido na grade do ciclo ${c}.</div>`):`<div class="row" style="margin-top:8px;gap:6px"><button class="btn light" data-act="hh-add" data-c="${c}" data-k="${k}">+ linha</button>${rows.length?`<button class="btn light" data-act="hh-del" data-c="${c}" data-k="${k}">− última linha</button>`:''}</div>`}</div>`;
     if(k==='etq')h+=vBanc(c);});
   return h+`<div class="note hhfoot">Planejado = Bancadas/HC × Meta/h × minutos ÷ 60. Diferença = Realizado − Planejado da hora (azul: bateu/passou · vermelho: abaixo).</div></div>`;
@@ -1378,6 +1378,11 @@ document.addEventListener('change',e=>{
     if(f!=='rec'){const n=normTime(v);if(n==null){toast('Horário inválido. Digite assim: 520, 0520 ou 05:20');el.value='';scheduleRender();return;}v=n;}else v=num(v);
     if(!S.hhOv)S.hhOv={};if(!S.hhOv[c])S.hhOv[c]={};if(!S.hhOv[c][k])S.hhOv[c][k]={};const o=S.hhOv[c][k][gi]=S.hhOv[c][k][gi]||{};
     if(v===''||v==null)delete o[f];else o[f]=v;touch();scheduleRender();return;}
+  {const mm=/^hh\.([^.]+)\.sort\.(\d+)\.real$/.exec(el.dataset.p||'');if(mm){const c=mm[1],i=+mm[2];const rows=hhRows(c,'sort');const typed=num(el.value);
+    if(typed!=null&&i>0){let prev=0;for(let j=0;j<i;j++){const v=num(rows[j].real);if(v!=null)prev+=v;}
+      if(prev>0){const real=typed-prev;rows[i].lido=typed;el.value=String(real);if(real<0)toast('O valor digitado ('+fmt(typed)+') é menor que o acumulado das horas anteriores ('+fmt(prev)+'). Confira.');else toast(fmt(typed)+' − '+fmt(prev)+' = '+fmt(real)+' na hora');}
+      else rows[i].lido=typed;}
+    else if(rows[i])rows[i].lido=typed;}}
   if(el.dataset.t==='time'){const n=normTime(el.value);if(n==null){toast('Horário inválido. Digite assim: 520, 0520 ou 05:20');el.value=getP(el.dataset.p)||'';return;}el.value=n;}
   if(!el.dataset.p)return;
   if(el.dataset.p.startsWith('banc.')){const ps=el.dataset.p.split('.');bancData(ps[1],ps[2]);}
