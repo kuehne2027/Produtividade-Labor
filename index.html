@@ -423,6 +423,7 @@ body.dark{background:#0e3f80!important}
 @media (max-width:900px){.hhdrow{grid-template-columns:1fr}}
 .hhdcol{font-size:13px;min-height:18px}.hhdsm{font-size:11.5px;color:var(--mute);font-weight:600}
 .coldet>summary{cursor:pointer;list-style:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px}.coldet>summary::-webkit-details-marker{display:none}.coldet[open]>summary{margin-bottom:8px}
+.hhdin{display:flex;gap:6px;align-items:stretch}.hhdin input{flex:1;min-width:0}.hhdin .btn{font-size:20px;padding:0 14px}
 </style>
 </head>
 <body>
@@ -1419,6 +1420,51 @@ document.addEventListener('click',e=>{
 });
 
 /* ---------- Controle de Handheld ---------- */
+/* ---- leitura do código de barras: leitor (teclado), sem foco e câmera ---- */
+let hhdKT=[],hhdBuf='',hhdBufT=0,hhdAutoT=null;
+function hhdSubmit(el){clearTimeout(hhdAutoT);const v=(el?el.value:'').trim();if(!v)return;
+  if(el.id==='hhdQuem'){hhdS().quem=v;touch();const ch=document.querySelector('.hhdcol');if(ch)ch.innerHTML=hhdChip();const sc=$('#hhdScan');if(sc)sc.focus();}
+  else{el.value='';hhdBipar(v);}}
+window.addEventListener('keydown',e=>{const t=e.target;if(tab!=='handheld')return;
+  const isEnter=e.key==='Enter'||e.keyCode===13||e.which===13;
+  if(t&&(t.id==='hhdScan'||t.id==='hhdQuem')){
+    if(isEnter||(e.key==='Tab'&&t.value.trim()&&t.id==='hhdScan')){e.preventDefault();e.stopPropagation();hhdSubmit(t);return;}
+    hhdKT.push(performance.now());if(hhdKT.length>40)hhdKT.shift();return;}
+  // leitor bipando sem nenhum campo selecionado
+  const ae=document.activeElement;if(ae&&ae!==document.body&&ae.tagName!=='BUTTON')return;if($('#modal').classList.contains('on'))return;
+  const now=performance.now();if(now-hhdBufT>120)hhdBuf='';hhdBufT=now;
+  if(isEnter){if(hhdBuf.length>=3){e.preventDefault();const v=hhdBuf;hhdBuf='';hhdBipar(v);}return;}
+  if(e.key&&e.key.length===1){hhdBuf+=e.key;}
+},true);
+document.addEventListener('input',e=>{const t=e.target;if(!t||(t.id!=='hhdScan'&&t.id!=='hhdQuem'))return;
+  // leitor sem Enter: se os caracteres chegaram muito rápido, envia sozinho após uma pausa
+  clearTimeout(hhdAutoT);const L=hhdKT.slice(-Math.max(3,t.value.length));
+  const rapido=L.length>=3&&(L[L.length-1]-L[0])/(L.length-1)<45;
+  if(rapido&&t.value.trim().length>=3)hhdAutoT=setTimeout(()=>{if(document.activeElement===t)hhdSubmit(t);},180);});
+let camStream=null,camLoop=null,camAlvo='hhdScan';
+async function camParar(){if(camLoop){clearTimeout(camLoop);camLoop=null;}if(camStream){camStream.getTracks().forEach(t=>t.stop());camStream=null;}if(window._zxCtl){try{window._zxCtl.stop();}catch(e){}window._zxCtl=null;}}
+async function camAbrir(alvo){camAlvo=alvo||'hhdScan';
+  modal(`<h3 style="margin:0 0 8px">📷 Ler código pela câmera</h3><div class="note" style="margin:0 0 8px">Aponte para o código de barras do ${camAlvo==='hhdQuem'?'crachá':'handheld'}.</div><video id="camV" playsinline muted style="width:100%;max-height:60vh;background:#000;border-radius:10px"></video><div id="camMsg" class="note" style="margin-top:6px"></div><div class="row" style="justify-content:flex-end;margin-top:8px"><button class="btn light" data-act="cam-fechar">Fechar</button></div>`);
+  const msg=t=>{const m=$('#camMsg');if(m)m.innerHTML=t;};
+  const achou=v=>{camParar();const ov=document.querySelector('#modal');if(ov)ov.classList.remove('on');const el=$('#'+camAlvo);if(el){el.value=v;if(camAlvo==='hhdQuem'){hhdS().quem=v;touch();render();const sc=$('#hhdScan');if(sc)sc.focus();}else hhdBipar(v);}};
+  try{
+    if(!navigator.mediaDevices||!navigator.mediaDevices.getUserMedia)throw new Error('sem câmera');
+    if('BarcodeDetector' in window){
+      camStream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'}});const v=$('#camV');v.srcObject=camStream;await v.play();
+      const det=new BarcodeDetector({formats:['code_128','code_39','code_93','ean_13','ean_8','upc_a','upc_e','itf','codabar','qr_code','data_matrix','pdf417']});msg('Procurando código…');
+      const tick=async()=>{if(!camStream)return;try{const r=await det.detect(v);if(r&&r.length){achou(r[0].rawValue);return;}}catch(e){}camLoop=setTimeout(tick,180);};tick();
+    }else{
+      msg('Carregando leitor…');
+      if(!window.ZXingBrowser){await new Promise((ok,er)=>{const s=document.createElement('script');s.src='https://unpkg.com/@zxing/browser@0.1.5/umd/zxing-browser.min.js';s.onload=ok;s.onerror=er;document.head.appendChild(s);});}
+      const rd=new ZXingBrowser.BrowserMultiFormatReader();msg('Procurando código…');
+      window._zxCtl=await rd.decodeFromVideoDevice(undefined,'camV',(res)=>{if(res)achou(res.getText());});
+    }
+  }catch(e){console.warn(e);msg('<span class="neg">Não consegui abrir a câmera aqui. Permita o acesso à câmera no navegador (ou use o link do GitHub) — ou use o leitor/digite o código.</span>');}
+}
+document.addEventListener('click',e=>{const c=e.target.closest('[data-cam]');if(c){camAbrir(c.dataset.cam);return;}
+  const t=e.target.closest('[data-act="cam-fechar"],[data-close]');if(t&&camStream!==null||t&&window._zxCtl){camParar();}
+  if(e.target.closest('[data-act="cam-fechar"]')){camParar();$('#modal').classList.remove('on');}});
+
 function hhdS(){if(!S.hhd)S.hhd={cad:[],mov:[],quem:'',modo:'auto'};if(!S.hhd.cad)S.hhd.cad=[];if(!S.hhd.mov)S.hhd.mov=[];return S.hhd;}
 const hhdNorm=v=>String(v||'').trim().toUpperCase();
 function hhdNome(cod){const c=hhdS().cad.find(x=>hhdNorm(x.cod)===hhdNorm(cod));return c?c.nome:'';}
@@ -1449,10 +1495,10 @@ function vHandheld(){
    <div class="kpi sor"><div class="l">Em uso agora</div><div class="v">${fmt(emUso)}</div><div class="s">retirados e não devolvidos</div></div>
    <div class="kpi pes"><div class="l">Disponíveis</div><div class="v">${fmt(disp)}</div><div class="s">cadastrados que estão na base</div></div>
    <div class="kpi gold"><div class="l">Bipagens hoje</div><div class="v">${fmt(H.mov.length)}</div><div class="s">${H.mov.filter(m=>m.tipo==='saida').length} retiradas · ${H.mov.filter(m=>m.tipo==='entrada').length} devoluções</div></div></div>
-  <div class="card hhdscan"><h2>📟 Bipar handheld <span class="tag">bipe o código de barras do aparelho (ou digite e aperte Enter)</span></h2>
+  <div class="card hhdscan"><h2>📟 Bipar handheld <span class="tag">leitor (bipador), câmera 📷 ou digitar + Enter</span></h2>
    <div class="hhdrow">
-    <label class="hhdf"><span>Código de barras</span><input id="hhdScan" type="text" autocomplete="off" placeholder="Bipe aqui…" autofocus></label>
-    <label class="hhdf"><span>Colaborador (na retirada) — bipe o crachá ou digite o nome</span><input id="hhdQuem" type="text" list="hhdColabs" autocomplete="off" placeholder="Código ou nome" value="${esc(H.quem||'')}">
+    <div class="hhdf"><span>Código de barras do handheld</span><div class="hhdin"><input id="hhdScan" type="text" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Bipe aqui…" autofocus><button class="btn light" data-cam="hhdScan" title="Ler pela câmera">📷</button></div></div>
+    <label class="hhdf"><span>Colaborador (na retirada) — bipe o crachá ou digite o nome</span><div class="hhdin"><input id="hhdQuem" type="text" list="hhdColabs" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Código ou nome" value="${esc(H.quem||'')}"><button class="btn light" data-cam="hhdQuem" title="Ler crachá pela câmera">📷</button></div>
      <datalist id="hhdColabs">${colS().lista.slice(0,3000).map(c=>`<option value="${esc(c.nome)}">${esc(c.cod||'')}</option>`).join('')}</datalist>
      <span class="hhdcol">${hhdChip()}</span></label>
     <div class="hhdf"><span>Tipo</span><div class="seg">${[['auto','🔁 Automático'],['saida','📤 Retirada'],['entrada','📥 Devolução']].map(([k,l])=>`<button data-hhdmodo="${k}" class="${modo===k?'on':''}">${l}</button>`).join('')}</div></div>
@@ -1479,8 +1525,6 @@ function vHandheld(){
 function hhdCsv(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const L=[['Hora','Código','Aparelho','Tipo','Colaborador','Código colaborador'].map(q).join(';')];
   hhdS().mov.forEach(m=>L.push([m.hora,m.cod,hhdNome(m.cod),m.tipo==='saida'?'Retirada':'Devolução',m.quem,m.qcod||''].map(q).join(';')));
   const b=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='handheld-'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();a.remove();}
-window.addEventListener('keydown',e=>{if(e.target&&e.target.id==='hhdQuem'&&e.key==='Enter'){e.preventDefault();e.stopPropagation();hhdS().quem=e.target.value;touch();const sc=$('#hhdScan');if(sc)sc.focus();return;}
-  if(e.target&&e.target.id==='hhdScan'&&e.key==='Enter'){e.preventDefault();e.stopPropagation();const v=e.target.value;e.target.value='';hhdBipar(v);}},true);
 document.addEventListener('change',e=>{const el=e.target;
   if(el.id==='hhdQuem'){hhdS().quem=el.value;touch();const ch=document.querySelector('.hhdcol');if(ch)ch.innerHTML=hhdChip();return;}
   if(el.dataset&&el.dataset.hhdcad){const [i,k]=el.dataset.hhdcad.split('|');hhdS().cad[+i][k]=k==='cod'?hhdNorm(el.value):el.value.trim();touch();scheduleRender();}});
