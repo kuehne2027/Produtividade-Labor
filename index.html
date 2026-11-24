@@ -123,10 +123,10 @@ table.big td.oc,table.big th.oth{background:#f6f8fc}
 .cy-f b{color:#14213d}
 
 /* campos de pessoas / HC em amarelo forte; na Expedição: branco vazio, amarelo com gente */
-input[data-p$=".banc"],input[data-p$=".ilhas"],input[data-p$=".hc"],input[data-p*=".outros."],input[data-p$=".nsIlhas"],input[data-p$=".nsHc"],input[data-p^="hcReal."],input[data-p^="ctlRec."],input[data-p^="expedicao."][data-p$=".2"],input[data-p^="ctlExtra."][data-p$=".rec"],input[data-p^="pd."][data-p$=".1"]{background:#ffe600;border-color:#e6c800;color:#0b2a6b;font-weight:700}
+input[data-p$=".banc"],input[data-p$=".ilhas"],input[data-p$=".hc"],input[data-p*=".outros."],input[data-p$=".nsIlhas"],input[data-p$=".nsHc"],input[data-p$=".chBanc"],input[data-p$=".chIlhas"],input[data-p$=".chHc"],input[data-p^="hcReal."],input[data-p^="ctlRec."],input[data-p^="expedicao."][data-p$=".2"],input[data-p^="ctlExtra."][data-p$=".rec"],input[data-p^="pd."][data-p$=".1"]{background:#ffe600;border-color:#e6c800;color:#0b2a6b;font-weight:700}
 input.hcin{background:#fff!important;border-color:#cbd5e1!important}
 .hcin.filled{background:#ffe600!important;border-color:#e6c800!important}
-input[data-p$=".banc"]::placeholder,input[data-p$=".ilhas"]::placeholder,input[data-p$=".hc"]::placeholder,input[data-p*=".outros."]::placeholder,input[data-p$=".nsIlhas"]::placeholder,input[data-p$=".nsHc"]::placeholder,input[data-p^="ctlRec."]::placeholder{color:#8a7a00}
+input[data-p$=".banc"]::placeholder,input[data-p$=".ilhas"]::placeholder,input[data-p$=".hc"]::placeholder,input[data-p*=".outros."]::placeholder,input[data-p$=".nsIlhas"]::placeholder,input[data-p$=".nsHc"]::placeholder,input[data-p$=".chBanc"]::placeholder,input[data-p$=".chIlhas"]::placeholder,input[data-p$=".chHc"]::placeholder,input[data-p^="ctlRec."]::placeholder{color:#8a7a00}
 
 .dif{display:inline-block;min-width:64px;padding:3px 8px;border-radius:8px;font-weight:800}
 .dif.dz,.dif.dp{background:#dbeafe;color:#1d4ed8}
@@ -410,6 +410,12 @@ body.dark{background:#0e3f80!important}
 .hhwrap table.big td,.hhwrap table.big th{padding-left:3px;padding-right:3px}.hhwrap table.big td{font-size:13px}
 .hhwrap table.big input.tm{width:50px!important;min-width:50px!important;font-size:13px!important}.hhwrap table.big td{font-size:12.5px}.hhwrap table.big th{font-size:10px}.hhwrap table.big input:not(.tm){min-width:30px!important;font-size:13px!important}
 .hhlido{font-size:11px;font-weight:700;color:var(--mute);margin-top:2px}
+.chptab input.tm{width:56px;min-width:56px;font-size:13.5px!important;padding:2px 1px}
+.chptab td,.chptab th{padding-left:4px;padding-right:4px}
+.chptab input:not(.tm){max-width:56px;margin:auto;display:block;text-align:center}
+.prodg{grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr))!important}
+.prodg input{max-width:70px;margin:auto;display:block;text-align:center}
+.hhwrap [style*="color:var(--pes)"]{color:#6ee7a8!important}.hhwrap [style*="color:var(--sor)"]{color:#ffd166!important}.hhwrap [style*="color:var(--etq)"]{color:#9fd0ff!important}
 </style>
 </head>
 <body>
@@ -477,10 +483,10 @@ function normTime(v){v=String(v||'').trim().toLowerCase().replace(/\s+/g,'');if(
 function inp(path,type,cls,ph){const v=getP(path);if(HCRE.test(path))cls=(cls||'')+' hcin'+((num(v)||0)>0?' filled':'');return `<input data-p="${path}" data-t="${type||'n'}" ${type==='time'?'type="text" inputmode="numeric" maxlength="5" autocomplete="off"':type==='s'?'type="text"':'type="number" step="any"'} class="${(cls||'')+(type==='time'?' tm':'')}" value="${v==null?'':esc(v)}" placeholder="${ph==null?(type==='time'?'hh:mm':''):esc(ph)}">`;}
 
 /* ---------------- Cálculos ---------------- */
-function nsT(c,i,k,j,val,base){const own=((S.grid[c][i][k]||[])[j]||'')!=='';return `<input type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="hh:mm" data-p="grid.${c}.${i}.${k}.${j}" data-t="time" class="tm ${own?'nsown':''}" value="${esc(val||'')}" title="${own?'Horário ajustado no N-SACA (apague para voltar ao do ciclo)':'Igual ao ciclo — altere para ajustar'}">`;}
+function nsT(c,i,k,j,val,base){const own=((S.grid[c][i][k]||[])[j]||'')!=='';return `<input type="text" inputmode="numeric" maxlength="5" autocomplete="off" placeholder="hh:mm" data-p="grid.${c}.${i}.${k}.${j}" data-t="time" class="tm ${own?'nsown':''}" value="${esc(val||'')}" title="${own?'Horário ajustado aqui (apague para voltar ao do ciclo)':'Igual ao ciclo — altere para ajustar'}">`;}
 function calcCiclo(c){
   const g=S.grid[c],p=S.prod[c],exp=expTotal();
-  let aE=0,aP=0,aS=0,aNP=0,aNS=0;
+  let aE=0,aP=0,aS=0,aNP=0,aNS=0,aCE=0,aCP=0,aCS=0;
   const rows=g.map((r,i)=>{
     const pr=p[i]||{};
     const dE=dur(r.etq[0],r.etq[1]),dP=dur(r.pesca[0],r.pesca[1]),dSfull=dur(r.sort[0],r.sort[1]);
@@ -495,17 +501,24 @@ function calcCiclo(c){
     const np0=r.nsPH[0]||r.pesca[0],np1=r.nsPH[1]||r.pesca[1],ns0=r.nsSH[0]||r.sort[0],ns1=r.nsSH[1]||r.sort[1];
     const dNP=dur(np0,np1),dNSf=dur(ns0,ns1),dNS=(ns0==='06:00'&&ns1==='07:00')?50/60:dNSf;
     const nP=Math.round(nIl*prNP*dNP),nS=Math.round(nHc*prNS*dNS);
-    aE+=pE;aP+=pP;aS+=pS;aNP+=nP;aNS+=nS;
+    if(!r.chEH)r.chEH=['',''];if(!r.chPH)r.chPH=['',''];if(!r.chSH)r.chSH=['',''];
+    const ce0=r.chEH[0]||r.etq[0],ce1=r.chEH[1]||r.etq[1],cp0=r.chPH[0]||r.pesca[0],cp1=r.chPH[1]||r.pesca[1],cs0=r.chSH[0]||r.sort[0],cs1=r.chSH[1]||r.sort[1];
+    const dCE=dur(ce0,ce1),dCP=dur(cp0,cp1),dCSf=dur(cs0,cs1),dCS=(cs0==='06:00'&&cs1==='07:00')?50/60:dCSf;
+    const prCE=num(pr.chEtq)!=null?num(pr.chEtq):(num(pr.etq)||0),prCP=num(pr.chPesca)!=null?num(pr.chPesca):(num(pr.pesca)||0),prCS=num(pr.chSort)!=null?num(pr.chSort):(num(pr.sort)||0);
+    const cBanc=num(r.chBanc)!=null?num(r.chBanc):banc,cIl=num(r.chIlhas)!=null?num(r.chIlhas):ilhas,cHc=num(r.chHc)!=null?num(r.chHc):hc;
+    const cExtra=(num(r.chBanc)!=null?num(r.chBanc)*3:0)+(num(r.chIlhas)!=null?num(r.chIlhas):0)+(num(r.chHc)!=null?num(r.chHc):0);
+    const cE=Math.round(cBanc*prCE*dCE),cP=Math.round(cIl*prCP*dCP),cS=Math.round(cHc*prCS*dCS);
+    aE+=pE;aP+=pP;aS+=pS;aNP+=nP;aNS+=nS;aCE+=cE;aCP+=cP;aCS+=cS;
     const outros=r.outros.map(Number).map(x=>x||0);
     if(exp!=null&&expAplica(c,i))outros[5]=exp;
     const pessoas=banc*3;
     const abs=outros[7],almoco=outros[8]||0;
-    const necess=pessoas+ilhas+hc+nExtra+outros.slice(0,7).reduce((a,b)=>a+b,0);
-    return {i,np0,np1,ns0,ns1,dNP,dNS,nIl,nHc,nExtra,dE,dP,dS,dSfull,banc,pessoas,ilhas,hc,pE,pP,pS,aE,aP,aS,nP,nS,aNP,aNS,outros,abs,almoco,necess,total:necess+abs+almoco};
+    const necess=pessoas+ilhas+hc+nExtra+cExtra+outros.slice(0,7).reduce((a,b)=>a+b,0);
+    return {i,ce0,ce1,cp0,cp1,cs0,cs1,cBanc,cIl,cHc,cExtra,cE,cP,cS,aCE,aCP,aCS,np0,np1,ns0,ns1,dNP,dNS,nIl,nHc,nExtra,dE,dP,dS,dSfull,banc,pessoas,ilhas,hc,pE,pP,pS,aE,aP,aS,nP,nS,aNP,aNS,outros,abs,almoco,necess,total:necess+abs+almoco};
   });
   if(!S.ajuste)S.ajuste={};if(!S.ajuste[c])S.ajuste[c]={buffered:null,etqBranca:null};
   const X=(num(S.ajuste[c].buffered)||0)+(num(S.ajuste[c].etqBranca)||0);
-  return {rows,X,tEb:aE,tPb:aP,tE:aE+X,tP:aP-X,tS:aS,tNP:aNP,tNS:aNS,tSort:aS};
+  return {rows,X,tEb:aE,tPb:aP,tE:aE+X,tP:aP-X,tS:aS,tNP:aNP,tNS:aNS,tCE:aCE,tCP:aCP,tCS:aCS,tSort:aS};
 }
 function expAplica(c,i){const g=(S.grid[c]||[])[i];if(!g)return false;
   const sel=(S.expSel||{})[c];if(sel&&sel.some(Boolean))return !!sel[i];
@@ -547,9 +560,9 @@ function vCiclo(){
   const peak=R.rows.reduce((m,r)=>Math.max(m,r.total),0);
   let h=`<div class="row" style="justify-content:space-between;margin-bottom:14px">${seg()}<span class="note">Células amarelas são editáveis. Produtividade e volume vêm do <b>Resumo</b>.</span></div>
   <div class="kpis">
-   <div class="kpi etq"><div class="l">Etiquetagem</div><div class="v">${fmt(R.tE)}</div><div class="s">${R.X?`grade ${fmt(R.tEb)} + ${fmt(R.X)} (Buff./ETQ) · `:''}meta ${fmt(meta)} · ${pct.toFixed(0)}%</div><div class="bar"><i style="width:${pct}%"></i></div></div>
-   <div class="kpi pes"><div class="l">Pesca</div><div class="v">${fmt(R.tP)}</div><div class="s">${R.X?`grade ${fmt(R.tPb)} − ${fmt(R.X)} (Buff./ETQ) · `:''}dos quais N-SACA ${fmt(Math.min(R.tNP,R.tP))}</div></div>
-   <div class="kpi sor"><div class="l">Sorting do ciclo</div><div class="v">${fmt(R.tS)}</div><div class="s">dos quais N-SACA ${fmt(Math.min(R.tNS,R.tS))}</div></div>
+   <div class="kpi etq"><div class="l">Etiquetagem</div><div class="v">${fmt(R.tE)}</div><div class="s">${R.X?`grade ${fmt(R.tEb)} + ${fmt(R.X)} (Buff./ETQ) · `:''}meta ${fmt(meta)} · ${pct.toFixed(0)}% · dos quais CHP ${fmt(Math.min(R.tCE,R.tE))}</div><div class="bar"><i style="width:${pct}%"></i></div></div>
+   <div class="kpi pes"><div class="l">Pesca</div><div class="v">${fmt(R.tP)}</div><div class="s">${R.X?`grade ${fmt(R.tPb)} − ${fmt(R.X)} (Buff./ETQ) · `:''}dos quais N-SACA ${fmt(Math.min(R.tNP,R.tP))} · CHP ${fmt(Math.min(R.tCP,R.tP))}</div></div>
+   <div class="kpi sor"><div class="l">Sorting do ciclo</div><div class="v">${fmt(R.tS)}</div><div class="s">dos quais N-SACA ${fmt(Math.min(R.tNS,R.tS))} · CHP ${fmt(Math.min(R.tCS,R.tS))}</div></div>
    <div class="kpi gold"><div class="l">Total Sorting</div><div class="v">${fmt(R.tSort)}</div><div class="s">N-SACA dentro: ${fmt(Math.min(R.tNS,R.tSort))} (${R.tSort?Math.round(Math.min(R.tNS,R.tSort)/R.tSort*100):0}%) · sem N-SACA ${fmt(Math.max(0,R.tSort-R.tNS))} · volume ${fmt(v.pesca)}</div></div>
    <div class="kpi"><div class="l">HC no pico</div><div class="v">${fmt(peak)}</div><div class="s">com ABS</div></div>
   </div>`;
@@ -576,6 +589,13 @@ function vCiclo(){
   h+=`<div class="card"><h2>Expedição ✎ <span class="tag">total entra na coluna Exp. CPM</span></h2>${(()=>{if(!S.expHora)S.expHora={};if(!S.expHora[c])S.expHora[c]={ini:'',fim:''};if(!S.expSel)S.expSel={};if(!S.expSel[c])S.expSel[c]=[];return `<div style="margin-bottom:10px"><div style="font-weight:600;font-size:13px;margin-bottom:6px">Em quais horários a Expedição entra? <span class="note" style="margin:0">(clique para marcar/desmarcar)</span></div><div class="row" style="gap:6px">${(S.grid[c]||[]).map((g,i)=>{const on=expAplica(c,i);return `<button data-expsel="${i}" style="border:2px solid ${on?'#0f2a44':'#cbd5e1'};background:${on?'#ffe600':'#fff'};color:#0f2a44;font:700 12px Inter,sans-serif;border-radius:20px;padding:5px 11px;cursor:pointer">${on?'✓ ':''}${i+1}ª · ${g.etq[0]||'--:--'}</button>`;}).join('')}</div></div>`;})()}<div class="tw"><table><thead><tr><th>Função</th><th>Detalhe</th><th>Pessoas</th></tr></thead><tbody>`;
   S.expedicao.forEach((r,i)=>{h+=`<tr><td>${inp(`expedicao.${i}.0`,'s','w')}</td><td>${inp(`expedicao.${i}.1`,'s','w')}</td><td>${inp(`expedicao.${i}.2`)}</td></tr>`;});
   h+=`</tbody><tfoot><tr><td class="lbl" colspan="2">TOTAL → coluna Expedição</td><td>${expTotal()==null?'–':fmt(expTotal())}</td></tr></tfoot></table></div><div class="note">O total só entra nos horários marcados (em amarelo). Os horários desmarcados ficam com o que você lançou na grade. Sem nenhuma seleção = entra em <b>todos</b> os horários do ciclo.</div></div></div>`;
+  h+=`<div class="card chp"><h2>CHP <span class="tag">Horário, Bancadas, Ilhas e HC ✎ — em branco = usa os do ciclo · Prod./h vem do Resumo</span></h2><div class="tw"><table class="chptab">
+  <thead><tr><th class="grp g-nav"></th><th class="grp g-etq" colspan="5">CHP — ETIQUETAGEM</th><th class="grp g-pes" colspan="5">CHP — PESCA</th><th class="grp g-sor" colspan="5">CHP — SORTING</th></tr>
+  <tr><th>#</th><th>Início ✎</th><th>Fim ✎</th><th>Banc. ✎</th><th>Produção</th><th>Acum.</th><th>Início ✎</th><th>Fim ✎</th><th>Ilhas ✎</th><th>Produção</th><th>Acum.</th><th>Início ✎</th><th>Fim ✎</th><th>HC ✎</th><th>Produção</th><th>Acum.</th></tr></thead><tbody>`;
+  R.rows.forEach((r,i)=>{const g=S.grid[c][i];h+=`<tr><td class="lbl">${i+1}ª</td><td>${nsT(c,i,'chEH',0,r.ce0,g.etq[0])}</td><td>${nsT(c,i,'chEH',1,r.ce1,g.etq[1])}</td><td>${inp(`grid.${c}.${i}.chBanc`,'n','',r.banc)}</td><td class="num">${fmt(r.cE)}</td><td class="num">${fmt(r.aCE)}</td><td>${nsT(c,i,'chPH',0,r.cp0,g.pesca[0])}</td><td>${nsT(c,i,'chPH',1,r.cp1,g.pesca[1])}</td><td>${inp(`grid.${c}.${i}.chIlhas`,'n','',r.ilhas)}</td><td class="num">${fmt(r.cP)}</td><td class="num">${fmt(r.aCP)}</td><td>${nsT(c,i,'chSH',0,r.cs0,g.sort[0])}</td><td>${nsT(c,i,'chSH',1,r.cs1,g.sort[1])}</td><td>${inp(`grid.${c}.${i}.chHc`,'n','',r.hc)}</td><td class="num">${fmt(r.cS)}</td><td class="num">${fmt(r.aCS)}</td></tr>`;});
+  h+=`</tbody><tfoot><tr><td class="lbl" colspan="4">Total CHP</td><td>${fmt(R.tCE)}</td><td></td><td colspan="3"></td><td>${fmt(R.tCP)}</td><td></td><td colspan="3"></td><td>${fmt(R.tCS)}</td><td></td></tr>
+  <tr><td class="lbl" colspan="4">CHP dentro da Etiquetagem (${fmt(R.tE)})</td><td colspan="2" style="color:var(--etq)">${fmt(Math.min(R.tCE,R.tE))} · ${R.tE?Math.round(Math.min(R.tCE,R.tE)/R.tE*100):0}%</td><td class="lbl" colspan="3">dentro da Pesca</td><td colspan="2" style="color:var(--pes)">${fmt(Math.min(R.tCP,R.tP))} · ${R.tP?Math.round(Math.min(R.tCP,R.tP)/R.tP*100):0}%</td><td class="lbl" colspan="3">dentro do Sorting</td><td colspan="2" style="color:var(--sor)">${fmt(Math.min(R.tCS,R.tS))} · ${R.tS?Math.round(Math.min(R.tCS,R.tS)/R.tS*100):0}%</td></tr></tfoot></table></div>
+  <div class="note">Funciona igual ao N-SACA: horário, bancadas, ilhas e HC vêm da grade do ciclo. Se você mudar aqui, vale só para o CHP (horário fica <b style="color:#7c3aed">roxo</b>; apague para voltar ao do ciclo). Pessoas digitadas aqui entram no HC total (bancadas × 3). A produtividade vem das colunas CHP do Resumo (em branco = a do ciclo).</div></div>`;
   if(!S.expPrev)S.expPrev={};if(!S.expPrev[c])S.expPrev[c]={subida:c==='AM'?'07:30':'',expedicao:c==='AM'?'07:40':''};
   const fimSort=R.rows.filter(r=>r.pS>0).map(r=>S.grid[c][r.i].sort[1]).filter(Boolean).sort((x,y)=>mins(x)-mins(y)).pop()||null;
   const cmp=(key)=>{const alvo=S.expPrev[c][key];if(!alvo||!fimSort)return '<span class="note" style="margin:0">—</span>';const d=mins(alvo)-mins(fimSort);
@@ -745,9 +765,9 @@ function vResumo(){
     <div class="kpi gold" style="padding:10px 12px"><div class="l">Total</div><div class="v">${r.pessoas+r.hc+r.ilhasNec}</div><div class="s">pessoas (etq + sort + ilhas)</div></div></div>
    <div class="cy-f" style="margin-top:10px"><span>Etq ${fmt2(r.dE)}h</span><span>Sort ${fmt2(r.dS)}h</span><span>Vol ${fmt(S.volume[c].etq)}</span></div></div>`;}).join('')}</div>
   <div class="note">Bancadas = Volume da Etiquetagem ÷ (produtividade média/h da Etiquetagem × horas de Etiquetagem). Sorting = Volume ÷ (produtividade média/h do Sorting × horas de Sorting) → arredondado em linhas de 3 pessoas. Ilhas Pesca = Volume do ciclo ÷ SPR das rotas ÷ média de gaiolas por rua. Arredondado pra cima. "no Ciclo" compara com o maior número lançado na grade do ciclo.</div></div>`;
-  h+=`<div class="card"><h2>⏱ Produtividade por hora <span class="tag">N-SACA em branco = usa a do ciclo</span></h2><div class="grid2">`;
-  CICLOS.forEach(c=>{h+=`<div><div class="tw"><table><thead><tr><th class="grp g-gold" colspan="6">Ciclo ${c}</th></tr><tr><th>Intervalo</th><th>Etiquetagem</th><th>Pesca</th><th>Sorting</th><th>N-SACA Pesca</th><th>N-SACA Sorting</th></tr></thead><tbody>`;
-    S.prod[c].forEach((p,i)=>{const b=`prod.${c}.${i}`;h+=`<tr><td class="lbl">${i+1}º Hora</td><td>${inp(b+'.etq')}</td><td>${inp(b+'.pesca')}</td><td>${inp(b+'.sort')}</td><td>${inp(b+'.nsPesca','n','',p.pesca)}</td><td>${inp(b+'.nsSort','n','',p.sort)}</td></tr>`;});
+  h+=`<div class="card"><h2>⏱ Produtividade por hora <span class="tag">N-SACA e CHP em branco = usa a do ciclo</span></h2><div class="grid2 prodg">`;
+  CICLOS.forEach(c=>{h+=`<div><div class="tw"><table><thead><tr><th class="grp g-gold" colspan="9">Ciclo ${c}</th></tr><tr><th>Intervalo</th><th>Etiq.</th><th>Pesca</th><th>Sort.</th><th>N-SACA Pesca</th><th>N-SACA Sort.</th><th>CHP Etiq.</th><th>CHP Pesca</th><th>CHP Sort.</th></tr></thead><tbody>`;
+    S.prod[c].forEach((p,i)=>{const b=`prod.${c}.${i}`;h+=`<tr><td class="lbl">${i+1}º Hora</td><td>${inp(b+'.etq')}</td><td>${inp(b+'.pesca')}</td><td>${inp(b+'.sort')}</td><td>${inp(b+'.nsPesca','n','',p.pesca)}</td><td>${inp(b+'.nsSort','n','',p.sort)}</td><td>${inp(b+'.chEtq','n','',p.etq)}</td><td>${inp(b+'.chPesca','n','',p.pesca)}</td><td>${inp(b+'.chSort','n','',p.sort)}</td></tr>`;});
     h+=`</tbody></table></div></div>`;});
   h+=`</div></div>`;
   return h;
@@ -1347,7 +1367,7 @@ document.addEventListener('click',e=>{
   if(a==='addrow'){const g=S.grid[c],last=g[g.length-1]||{etq:['',''],pesca:['',''],sort:['',''],outros:[0,0,0,0,0,0,0,0]};
     const p60=x=>{const m=mins(x);if(m==null)return x;const n=(m+60)%1440;return String(Math.floor(n/60)).padStart(2,'0')+':'+String(n%60).padStart(2,'0');};
     g.push({etq:[last.etq[1],p60(last.etq[1])],pesca:[last.pesca[1],p60(last.pesca[1])],sort:[last.sort[1],p60(last.sort[1])],banc:0,ilhas:0,hc:0,outros:last.outros.slice()});
-    if(S.prod[c].length<g.length){const lp=S.prod[c][S.prod[c].length-1]||{};S.prod[c].push({etq:lp.etq||0,pesca:lp.pesca||0,sort:lp.sort||0,nsPesca:null,nsSort:null});}
+    if(S.prod[c].length<g.length){const lp=S.prod[c][S.prod[c].length-1]||{};S.prod[c].push({etq:lp.etq||0,pesca:lp.pesca||0,sort:lp.sort||0,nsPesca:null,nsSort:null,chEtq:null,chPesca:null,chSort:null});}
     touch();render();}
   if(a==='cx-add'||a==='cx-del'){const cc=t.dataset.c,kk=t.dataset.k;if(!S.ctlExtra)S.ctlExtra={};if(!S.ctlExtra[cc])S.ctlExtra[cc]={};if(!S.ctlExtra[cc][kk])S.ctlExtra[cc][kk]=[];
     const L=S.ctlExtra[cc][kk];
@@ -1448,7 +1468,7 @@ window.addEventListener('beforeunload',e=>{if(dirty){e.preventDefault();e.return
 if(S.expedicao&&S.expedicao.length&&!S.expedicao[0][0]&&S.expedicao[1]&&S.expedicao[1][0]==='YMS')S.expedicao.shift();
 function hojeStr(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 function zerarPessoas(){
-  CICLOS.forEach(c=>{(S.grid[c]||[]).forEach(r=>{r.banc=null;r.ilhas=null;r.hc=null;r.nsIlhas=null;r.nsHc=null;r.outros=r.outros.map(()=>null);});
+  CICLOS.forEach(c=>{(S.grid[c]||[]).forEach(r=>{r.banc=null;r.ilhas=null;r.hc=null;r.nsIlhas=null;r.nsHc=null;r.chBanc=null;r.chIlhas=null;r.chHc=null;r.outros=r.outros.map(()=>null);});
     if(S.hcReal)S.hcReal[c]=(S.grid[c]||[]).map(()=>null);
     if(S.ajuste&&S.ajuste[c])S.ajuste[c]={buffered:null,etqBranca:null};});
   (S.expedicao||[]).forEach(r=>r[2]=null);
