@@ -425,6 +425,7 @@ body.dark{background:#0e3f80!important}
 .coldet>summary{cursor:pointer;list-style:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px}.coldet>summary::-webkit-details-marker{display:none}.coldet[open]>summary{margin-bottom:8px}
 .hhdin{display:flex;gap:6px;align-items:stretch}.hhdin input{flex:1;min-width:0}.hhdin .btn{font-size:20px;padding:0 14px}
 .hhdlista{font-size:12px;color:var(--mute);font-weight:600}.hhdlista a{color:#3483fa;text-decoration:none}
+input.hhdqtd{font-size:30px!important;font-weight:500!important;width:120px;padding:2px 8px!important;border:2px solid #ffe600!important;background:#fffbe0!important;color:#333!important;border-radius:8px}
 </style>
 </head>
 <body>
@@ -1496,12 +1497,12 @@ function vHandheld(){
   setTimeout(colAuto,50);
   const H=hhdS();const st=hhdStatus();
   const usos=Object.values(st).filter(m=>m.tipo==='saida').sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
-  const tot=H.cad.length,emUso=usos.length,disp=Math.max(0,tot-usos.filter(u=>hhdNome(u.cod)).length);
+  const qtd=num(H.qtd);const tot=qtd!=null?qtd:H.cad.length,emUso=usos.length,disp=qtd!=null?Math.max(0,qtd-emUso):Math.max(0,tot-usos.filter(u=>hhdNome(u.cod)).length);
   const modo=H.modo||'auto';
   let h=`<div class="kpis">
-   <div class="kpi etq"><div class="l">Handhelds cadastrados</div><div class="v">${fmt(tot)}</div><div class="s">lista abaixo</div></div>
+   <div class="kpi etq"><div class="l">Quantidade de HH ✎</div><div class="v"><input id="hhdQtd" type="number" min="0" step="1" inputmode="numeric" value="${qtd==null?'':qtd}" placeholder="${H.cad.length||0}" class="hhdqtd"></div><div class="s">${qtd==null?'digite o total de handhelds da operação':H.cad.length+' cadastrados na lista'}</div></div>
    <div class="kpi sor"><div class="l">Em uso agora</div><div class="v">${fmt(emUso)}</div><div class="s">retirados e não devolvidos</div></div>
-   <div class="kpi pes"><div class="l">Disponíveis</div><div class="v">${fmt(disp)}</div><div class="s">cadastrados que estão na base</div></div>
+   <div class="kpi pes"><div class="l">Disponíveis</div><div class="v">${fmt(disp)}</div><div class="s">${qtd!=null?'quantidade − em uso':'cadastrados que estão na base'}</div></div>
    <div class="kpi gold"><div class="l">Bipagens hoje</div><div class="v">${fmt(H.mov.length)}</div><div class="s">${H.mov.filter(m=>m.tipo==='saida').length} retiradas · ${H.mov.filter(m=>m.tipo==='entrada').length} devoluções</div></div></div>
   <div class="card hhdscan"><h2>📟 Bipar handheld <span class="tag">bipe o código de barras (ou digite e aperte Enter)</span></h2>
    <div class="hhdrow">
@@ -1537,6 +1538,7 @@ function hhdCsv(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';con
 document.addEventListener('change',e=>{const el=e.target;
   if(el.id==='hhdQuem'){hhdS().quem=el.value;touch();const ch=document.querySelector('.hhdcol');if(ch)ch.innerHTML=hhdChip();return;}
   if(el.dataset&&el.dataset.hhdcad){const [i,k]=el.dataset.hhdcad.split('|');hhdS().cad[+i][k]=k==='cod'?hhdNorm(el.value):el.value.trim();touch();scheduleRender();}});
+document.addEventListener('change',e=>{if(e.target.id==='hhdQtd'){hhdS().qtd=e.target.value===''?null:num(e.target.value);touch();render();toast('Quantidade de HH: '+(hhdS().qtd==null?'—':fmt(hhdS().qtd)));}});
 document.addEventListener('input',e=>{if(e.target.id==='hhdQuem'){hhdS().quem=e.target.value;const ch=document.querySelector('.hhdcol');if(ch)ch.innerHTML=hhdChip();}});
 document.addEventListener('click',e=>{
   const m=e.target.closest('[data-hhdmodo]');if(m){hhdS().modo=m.dataset.hhdmodo;touch();render();return;}
