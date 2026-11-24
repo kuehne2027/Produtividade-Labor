@@ -426,6 +426,7 @@ body.dark{background:#0e3f80!important}
 .hhdin{display:flex;gap:6px;align-items:stretch}.hhdin input{flex:1;min-width:0}.hhdin .btn{font-size:20px;padding:0 14px}
 .hhdlista{font-size:12px;color:var(--mute);font-weight:600}.hhdlista a{color:#3483fa;text-decoration:none}
 input.hhdqtd{font-size:30px!important;font-weight:500!important;width:120px;padding:2px 8px!important;border:2px solid #ffe600!important;background:#fffbe0!important;color:#333!important;border-radius:8px}
+#senhaIn{border:2px solid #3483fa!important;background:#fff!important;color:#333!important}
 </style>
 </head>
 <body>
@@ -1398,7 +1399,7 @@ function colCard(){const C=colS();const q=colNorm(S.colBusca||'');const L=C.list
   return `<details class="card coldet" ${S.colOpen?'open':''}><summary><h2 style="display:inline-flex;margin:0">👥 Colaboradores <span class="tag">${C.lista.length} na lista${C.em?' · atualizada '+esc(C.em):''}</span></h2> <span class="note" style="margin:0 0 0 8px">(clique para abrir/fechar)</span></summary>
    <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px;align-items:center">
     <button class="btn gold" data-act="col-puxar">🔄 Puxar da planilha</button>
-    <label class="btn light" style="cursor:pointer">📄 Importar arquivo<input type="file" id="colFile" accept=".xlsx,.xlsm,.csv,.txt" style="display:none"></label>
+    <label class="btn light colimp" style="cursor:pointer">📄 Importar arquivo<input type="file" id="colFile" accept=".xlsx,.xlsm,.csv,.txt" style="display:none"></label>
     <button class="btn light" data-act="col-add">+ colaborador</button>
     <button class="btn light" data-act="col-colunas">⚙ Colunas</button>
     <input id="colBusca" type="text" placeholder="🔎 Buscar nome ou código" value="${esc(S.colBusca||'')}" style="margin-left:auto;max-width:260px">
@@ -1426,6 +1427,37 @@ document.addEventListener('click',e=>{
     <div class="row" style="gap:8px;justify-content:flex-end"><button class="btn light" data-close>Cancelar</button><button class="btn gold" data-act="hhd-addcolab-ok">Adicionar</button></div>`);setTimeout(()=>{const x=$(isCod?'#ncNome':'#ncCod');if(x)x.focus();},40);}
   if(a==='hhd-addcolab-ok'){const cod=$('#ncCod').value.trim(),nome=$('#ncNome').value.trim();if(!nome){toast('Digite o nome.');return;}colS().lista.unshift({cod,nome,manual:true});hhdS().quem=cod||nome;const ov=document.querySelector('[data-close]');if(ov)ov.click();touch();render();toast('✓ '+nome+' adicionado(a) à lista.');}
 });
+
+/* ---- Senha para alterar colaboradores e handhelds ---- */
+const SENHA_HASH='9fc4d53240a08b24bb6b9bd3d1267c6acf7062ba292ead7dcc6c4e365d214d0a';
+let senhaAte=0,senhaPend=null;
+async function sha256hex(t){const b=await crypto.subtle.digest('SHA-256',new TextEncoder().encode(t));return [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');}
+function senhaOk(){return Date.now()<senhaAte;}
+function pedirSenha(motivo,cb){if(senhaOk()){cb();return;}senhaPend=cb;
+  modal(`<h3 style="margin:0 0 6px">🔒 Senha necessária</h3><div class="note" style="margin:0 0 10px">Para ${esc(motivo)}, digite a senha.</div>
+   <input id="senhaIn" type="password" inputmode="numeric" autocomplete="off" style="width:100%;font-size:22px;font-weight:800;text-align:center;letter-spacing:6px;padding:10px;border-radius:10px">
+   <div id="senhaMsg" class="neg" style="min-height:20px;margin-top:6px;font-size:13px"></div>
+   <div class="row" style="gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn light" data-close>Cancelar</button><button class="btn gold" id="senhaOkBtn">Confirmar</button></div>`);
+  setTimeout(()=>{const i=$('#senhaIn');if(i)i.focus();},40);}
+async function senhaConferir(){const i=$('#senhaIn');if(!i)return;const h=await sha256hex(i.value.trim());
+  if(h===SENHA_HASH){senhaAte=Date.now()+5*60*1000;const cb=senhaPend;senhaPend=null;const c=document.querySelector('#modalBox [data-close]');if(c)c.click();if(cb)setTimeout(cb,30);toast('🔓 Liberado por 5 minutos.');}
+  else{const m=$('#senhaMsg');if(m)m.textContent='Senha incorreta.';i.value='';i.focus();}}
+document.addEventListener('click',e=>{if(e.target.closest('#senhaOkBtn')){senhaConferir();}});
+window.addEventListener('keydown',e=>{if(e.target&&e.target.id==='senhaIn'&&e.key==='Enter'){e.preventDefault();e.stopPropagation();senhaConferir();}},true);
+const SENHA_ACTS={'hhd-add':'cadastrar handheld','hhd-lote':'cadastrar handhelds','hhd-addnc':'cadastrar handhelds','hhd-addcolab':'adicionar colaborador','col-add':'adicionar colaborador','col-puxar':'atualizar a lista de colaboradores','col-colunas':'mudar as colunas da lista'};
+// cliques protegidos
+window.addEventListener('click',e=>{if(senhaOk())return;
+  const a=e.target.closest('[data-act]');const del=e.target.closest('[data-hhdcaddel],[data-coldel]');const fileLbl=e.target.closest('.colimp');
+  let motivo=null,refazer=null;
+  if(a&&SENHA_ACTS[a.dataset.act]){motivo=SENHA_ACTS[a.dataset.act];refazer=()=>a.isConnected?a.click():null;}
+  else if(del){motivo=del.dataset.hhdcaddel!=null?'excluir um handheld do cadastro':'excluir um colaborador';const sel=del.dataset.hhdcaddel!=null?`[data-hhdcaddel="${del.dataset.hhdcaddel}"]`:`[data-coldel="${del.dataset.coldel}"]`;refazer=()=>{const x=document.querySelector(sel);if(x)x.click();};}
+  else if(fileLbl||e.target.id==='colFile'){motivo='importar a lista de colaboradores';refazer=()=>{const f=$('#colFile');if(f)f.click();};}
+  if(!motivo)return;e.preventDefault();e.stopImmediatePropagation();pedirSenha(motivo,refazer);},true);
+// alterações protegidas (campos)
+window.addEventListener('change',e=>{if(senhaOk())return;const el=e.target;
+  const prot=el.id==='hhdQtd'||(el.dataset&&(el.dataset.hhdcad||el.dataset.colcad));if(!prot)return;
+  e.stopImmediatePropagation();const val=el.value;const sel=el.id==='hhdQtd'?'#hhdQtd':el.dataset.hhdcad?`[data-hhdcad="${el.dataset.hhdcad}"]`:`[data-colcad="${el.dataset.colcad}"]`;
+  render();pedirSenha(el.id==='hhdQtd'?'alterar a quantidade de HH':el.dataset.hhdcad?'alterar o cadastro de handheld':'alterar um colaborador',()=>{const x=document.querySelector(sel);if(x){x.value=val;x.dispatchEvent(new Event('change',{bubbles:true}));}});},true);
 
 /* ---------- Controle de Handheld ---------- */
 /* ---- leitura do código de barras: leitor (teclado), sem foco e câmera ---- */
@@ -1510,7 +1542,7 @@ function vHandheld(){
     <label class="hhdf"><span>Colaborador (na retirada) — bipe o crachá ou digite o nome</span><div class="hhdin"><input id="hhdQuem" type="text" list="hhdColabs" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="Código ou nome" value="${esc(H.quem||'')}"></div>
      <datalist id="hhdColabs">${colS().lista.slice(0,3000).map(c=>`<option value="${esc(c.nome)}">${esc(c.cod||'')}</option>`).join('')}</datalist>
      <span class="hhdcol">${hhdChip()}</span>
-     <span class="hhdlista">📋 ${colS().lista.length?`<b>${colS().lista.length}</b> colaboradores na lista${colS().em?' · '+esc(colS().em):''}`:'<span class="neg">lista de colaboradores vazia</span>'} · <a href="#" data-act="col-puxar">🔄 atualizar da planilha</a> · <label style="cursor:pointer;color:#3483fa">📄 importar arquivo<input type="file" id="colFile" accept=".xlsx,.xlsm,.csv,.txt" style="display:none"></label></span></label>
+     <span class="hhdlista">📋 ${colS().lista.length?`<b>${colS().lista.length}</b> colaboradores na lista${colS().em?' · '+esc(colS().em):''}`:'<span class="neg">lista de colaboradores vazia</span>'} · <a href="#" data-act="col-puxar">🔄 atualizar da planilha</a> · <label class="colimp" style="cursor:pointer;color:#3483fa">📄 importar arquivo<input type="file" id="colFile" accept=".xlsx,.xlsm,.csv,.txt" style="display:none"></label></span></label>
     <div class="hhdf"><span>Tipo</span><div class="seg">${[['auto','🔁 Automático'],['saida','📤 Retirada'],['entrada','📥 Devolução']].map(([k,l])=>`<button data-hhdmodo="${k}" class="${modo===k?'on':''}">${l}</button>`).join('')}</div></div>
    </div>
    <div class="note" style="margin-top:8px">No <b>Automático</b>: se o aparelho está na base, a bipagem registra a <b>retirada</b>; se já está em uso, registra a <b>devolução</b>. Na retirada: bipe o <b>crachá</b> (ou digite o nome) no Colaborador, aperte Enter e bipe o <b>handheld</b>.</div></div>
