@@ -425,6 +425,11 @@ body.dark{background:#0e3f80!important}
 .coldet>summary{cursor:pointer;list-style:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px}.coldet>summary::-webkit-details-marker{display:none}.coldet[open]>summary{margin-bottom:8px}
 .hhdin{display:flex;gap:6px;align-items:stretch}.hhdin input{flex:1;min-width:0}.hhdin .btn{font-size:20px;padding:0 14px}
 .hhdlista{font-size:12px;color:var(--mute);font-weight:600}.hhdlista a{color:#3483fa;text-decoration:none}
+input.hhdqtd.sm{font-size:16px!important;width:78px;padding:1px 6px!important;font-weight:700!important}
+.hhdtot{display:flex;align-items:center;gap:6px;flex-wrap:wrap}
+#hhdQtdViva{display:inline-block}
+.hhdpulse{animation:hhdp .9s ease}.hhdpulse.down{color:#c0392b}.hhdpulse.up{color:#16a34a}
+@keyframes hhdp{0%{transform:scale(1.35)}100%{transform:scale(1)}}
 input.hhdqtd{font-size:30px!important;font-weight:500!important;width:120px;padding:2px 8px!important;border:2px solid #ffe600!important;background:#fffbe0!important;color:#333!important;border-radius:8px}
 #senhaIn{border:2px solid #3483fa!important;background:#fff!important;color:#333!important}
 </style>
@@ -1523,19 +1528,21 @@ function hhdBipar(cod){
   if(!hhdNome(cod))toast('ℹ '+cod+' não está cadastrado — dá para cadastrar na lista abaixo.');
   else if(!(tipo==='entrada'&&!emUso)&&!(tipo==='saida'&&emUso))toast((tipo==='saida'?'📤 Retirado: ':'📥 Devolvido: ')+cod+(hhdNome(cod)?' · '+hhdNome(cod):'')+(quem?' · '+quem:''));
   if(tipo==='saida')H.quem='';
+  hhdUlt=tipo==='saida'?'down':'up';
   touch();render();
 }
 function hhdChip(){const q=(hhdS().quem||'').trim();if(!q)return '';const c=colAchar(q);return c?`<b class="pos">✓ ${esc(c.nome)}${c.cod?' · '+esc(c.cod):''}</b>`:`<span class="neg">Não está na lista</span> <button class="btn light" data-act="hhd-addcolab" style="padding:2px 9px;font-size:12px">+ adicionar</button>`;}
+let hhdUlt='';
 function vHandheld(){
   setTimeout(colAuto,50);
   const H=hhdS();const st=hhdStatus();
   const usos=Object.values(st).filter(m=>m.tipo==='saida').sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
   const qtd=num(H.qtd);const tot=qtd!=null?qtd:H.cad.length,emUso=usos.length,disp=qtd!=null?Math.max(0,qtd-emUso):Math.max(0,tot-usos.filter(u=>hhdNome(u.cod)).length);
-  const modo=H.modo||'auto';
+  const modo=H.modo||'auto';setTimeout(()=>{hhdUlt='';},1200);
   let h=`<div class="kpis">
-   <div class="kpi etq"><div class="l">Quantidade de HH ✎</div><div class="v"><input id="hhdQtd" type="number" min="0" step="1" inputmode="numeric" value="${qtd==null?'':qtd}" placeholder="${H.cad.length||0}" class="hhdqtd"></div><div class="s">${qtd==null?'digite o total de handhelds da operação':H.cad.length+' cadastrados na lista'}</div></div>
+   <div class="kpi etq"><div class="l">Quantidade de HH na base</div><div class="v"><span id="hhdQtdViva" class="${hhdUlt?'hhdpulse '+hhdUlt:''}">${fmt(disp)}</span></div><div class="s hhdtot">total ✎ <input id="hhdQtd" type="number" min="0" step="1" inputmode="numeric" value="${qtd==null?'':qtd}" placeholder="${H.cad.length||0}" class="hhdqtd sm"> ${qtd==null?'<span>digite o total</span>':''}</div></div>
    <div class="kpi sor"><div class="l">Em uso agora</div><div class="v">${fmt(emUso)}</div><div class="s">retirados e não devolvidos</div></div>
-   <div class="kpi pes"><div class="l">Disponíveis</div><div class="v">${fmt(disp)}</div><div class="s">${qtd!=null?'quantidade − em uso':'cadastrados que estão na base'}</div></div>
+   <div class="kpi pes"><div class="l">Devolvidos hoje</div><div class="v">${fmt(H.mov.filter(m=>m.tipo==='entrada').length)}</div><div class="s">voltaram para a base</div></div>
    <div class="kpi gold"><div class="l">Bipagens hoje</div><div class="v">${fmt(H.mov.length)}</div><div class="s">${H.mov.filter(m=>m.tipo==='saida').length} retiradas · ${H.mov.filter(m=>m.tipo==='entrada').length} devoluções</div></div></div>
   <div class="card hhdscan"><h2>📟 Bipar handheld <span class="tag">bipe o código de barras (ou digite e aperte Enter)</span></h2>
    <div class="hhdrow">
