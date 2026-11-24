@@ -421,6 +421,8 @@ body.dark{background:#0e3f80!important}
 #hhdScan{font-size:22px!important;font-weight:800!important;padding:12px 14px;border:3px solid #3483fa!important;border-radius:10px;background:#fff!important;color:#2d3277!important;letter-spacing:1px}
 #hhdQuem{font-size:16px!important;padding:12px;border-radius:10px}
 @media (max-width:900px){.hhdrow{grid-template-columns:1fr}}
+.hhdcol{font-size:13px;min-height:18px}.hhdsm{font-size:11.5px;color:var(--mute);font-weight:600}
+.coldet>summary{cursor:pointer;list-style:none;display:flex;align-items:center;flex-wrap:wrap;gap:6px}.coldet>summary::-webkit-details-marker{display:none}.coldet[open]>summary{margin-bottom:8px}
 </style>
 </head>
 <body>
@@ -1349,6 +1351,73 @@ document.addEventListener('drop',e=>{const d=e.target.closest&&e.target.closest(
 document.addEventListener('paste',e=>{if(tab!=='guiada')return;const it=[...(e.clipboardData&&e.clipboardData.items||[])].find(x=>x.type.startsWith('image/'));if(it){gSetImg(it.getAsFile());toast('Imagem colada.');}});
 if(false){claude.use('sample').then(async s=>{try{if(s&&s.limits){const l=await s.limits();if(!l||!l.images)s=null;else gImgMax=Math.max(1,Math.min(5,l.images.maxCount||1));}}catch(e){}gSample=s||null;if(tab==='guiada')render();}).catch(()=>{});}
 
+/* ---- Colaboradores (para o Controle de Handheld) ---- */
+const COLAB_FONTE={id:'1j8VQgyyMQ4eduPRdBhB4twVxim__vpdgWBwoc0lvduQ',gid:'1104254786'};
+let colabRaw=null;
+function colS(){if(!S.colab)S.colab={lista:[],map:null,em:'',fonte:{...COLAB_FONTE}};if(!S.colab.lista)S.colab.lista=[];if(!S.colab.fonte)S.colab.fonte={...COLAB_FONTE};return S.colab;}
+const colNorm=v=>gNorm(v).toUpperCase().replace(/\s+/g,' ').trim();
+function colAchar(v){const L=colS().lista;const k=colNorm(v);if(!k)return null;return L.find(c=>colNorm(c.cod)===k)||L.find(c=>colNorm(c.nome)===k)||null;}
+function colDetect(linhas){let best=-1,bi=0,bm=null;
+  for(let i=0;i<Math.min(15,linhas.length);i++){const L=(linhas[i]||[]).map(x=>gNorm(x).toLowerCase());
+    const nome=L.findIndex(x=>/^(nome|colaborador|funcionario|nome completo|nome do colaborador)/.test(x));
+    const cod=L.findIndex(x=>/(groot|^cod|codigo|matric|login|^id\b|^id |^ext|crach|badge|^re$|^cpf)/.test(x));
+    const sc=(nome>=0?2:0)+(cod>=0?1:0);if(sc>best){best=sc;bi=i;bm={nome,cod};}}
+  return {hi:bi,map:bm};}
+function colAplicar(linhas,map,hi){const C=colS();const manuais=C.lista.filter(c=>c.manual);const out=[];const vis=new Set();
+  linhas.slice(hi+1).forEach(L=>{const nome=String((L||[])[map.nome]??'').trim();const cod=map.cod>=0?String((L||[])[map.cod]??'').trim():'';if(!nome)return;const k=colNorm(cod)+'|'+colNorm(nome);if(vis.has(k))return;vis.add(k);out.push({cod,nome});});
+  manuais.forEach(m=>{if(!out.some(o=>colNorm(o.nome)===colNorm(m.nome)))out.push(m);});
+  C.lista=out;C.map=map;C.em=new Date().toLocaleString('pt-BR');touch();render();toast('✓ '+out.length+' colaborador(es) carregado(s).');}
+function colMapear(linhas){colabRaw=linhas;const d=colDetect(linhas);const cab=(linhas[d.hi]||[]).map((x,i)=>String(x||'Coluna '+(i+1)));
+  const C=colS();const m=(C.map&&C.map.nome<cab.length)?C.map:d.map;
+  if(d.map.nome>=0&&!colMapAberto){colAplicar(linhas,{nome:m.nome>=0?m.nome:d.map.nome,cod:m.cod},d.hi);return;}
+  modal(`<h3 style="margin:0 0 8px">Quais colunas usar?</h3><div class="note" style="margin:0 0 10px">Escolha a coluna do <b>nome</b> e a do <b>código</b> (crachá / Groot ID / login).</div>
+   <input type="hidden" id="colHi" value="${d.hi}">
+   <label style="display:block;margin-bottom:8px;font-weight:700">Nome <select id="colNome" class="gsel">${cab.map((c,i)=>`<option value="${i}" ${i===(m.nome>=0?m.nome:0)?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
+   <label style="display:block;margin-bottom:12px;font-weight:700">Código <select id="colCod" class="gsel"><option value="-1">— não tem —</option>${cab.map((c,i)=>`<option value="${i}" ${i===m.cod?'selected':''}>${esc(c)}</option>`).join('')}</select></label>
+   <div class="row" style="gap:8px;justify-content:flex-end"><button class="btn light" data-close>Cancelar</button><button class="btn gold" data-act="col-map-ok">Usar estas colunas</button></div>`);}
+let colMapAberto=false;
+async function colPuxar(){const F=colS().fonte;const url=`https://docs.google.com/spreadsheets/d/${F.id}/gviz/tq?tqx=out:csv&gid=${F.gid}`;
+  toast('⏳ Buscando a lista na planilha…');
+  try{const r=await fetch(url);if(!r.ok)throw new Error('http '+r.status);const t=await r.text();if(/<html/i.test(t.slice(0,200)))throw new Error('login');
+    const linhas=gLerCsv(t)[0].linhas.filter(L=>L&&L.some(x=>String(x).trim()));if(!linhas.length)throw new Error('vazio');colMapear(linhas);}
+  catch(e){console.warn(e);modal(`<h3 style="margin:0 0 8px">Não consegui puxar da planilha</h3><div class="note" style="margin:0 0 10px">Para o app ler sozinho, a planilha precisa estar compartilhada como <b>"Qualquer pessoa com o link → Leitor"</b> (Compartilhar → Acesso geral). No link do Claude essa busca não funciona — use o link do GitHub.<br><br>Outra opção: no Google Sheets, <b>Arquivo → Fazer download → .xlsx ou .csv</b> e use <b>📄 Importar arquivo</b>.</div><div class="row" style="justify-content:flex-end"><button class="btn gold" data-close>Entendi</button></div>`);}}
+async function colImportar(file){try{const nome=file.name||'';let abas=/\.(xlsx|xlsm)$/i.test(nome)?await gLerXlsx(await file.arrayBuffer()):gLerCsv(await file.text());
+  abas=abas.filter(a=>a.linhas.length);if(!abas.length){toast('Arquivo vazio.');return;}
+  let best=abas[0],bs=-1;abas.forEach(a=>{const d=colDetect(a.linhas);const sc=(d.map.nome>=0?2:0)+(d.map.cod>=0?1:0);if(sc>bs){bs=sc;best=a;}});
+  colMapear(best.linhas.filter(L=>L&&L.some(x=>String(x).trim())));}catch(e){console.warn(e);toast('Não consegui ler esse arquivo. Use .xlsx ou .csv.');}}
+function colCard(){const C=colS();const q=colNorm(S.colBusca||'');const L=C.lista.map((c,i)=>({c,i})).filter(({c})=>!q||colNorm(c.nome).includes(q)||colNorm(c.cod).includes(q));
+  return `<details class="card coldet" ${S.colOpen?'open':''}><summary><h2 style="display:inline-flex;margin:0">👥 Colaboradores <span class="tag">${C.lista.length} na lista${C.em?' · atualizada '+esc(C.em):''}</span></h2> <span class="note" style="margin:0 0 0 8px">(clique para abrir/fechar)</span></summary>
+   <div class="row" style="gap:8px;flex-wrap:wrap;margin:6px 0 10px;align-items:center">
+    <button class="btn gold" data-act="col-puxar">🔄 Puxar da planilha</button>
+    <label class="btn light" style="cursor:pointer">📄 Importar arquivo<input type="file" id="colFile" accept=".xlsx,.xlsm,.csv,.txt" style="display:none"></label>
+    <button class="btn light" data-act="col-add">+ colaborador</button>
+    <button class="btn light" data-act="col-colunas">⚙ Colunas</button>
+    <input id="colBusca" type="text" placeholder="🔎 Buscar nome ou código" value="${esc(S.colBusca||'')}" style="margin-left:auto;max-width:260px">
+   </div>
+   <div class="tw" style="max-height:380px;overflow-y:auto"><table><thead><tr><th>#</th><th style="text-align:left">Código ✎</th><th style="text-align:left">Nome ✎</th><th>Origem</th><th></th></tr></thead><tbody>
+   ${L.length?L.slice(0,400).map(({c,i})=>`<tr><td class="lbl">${i+1}</td><td style="text-align:left"><input type="text" data-colcad="${i}|cod" value="${esc(c.cod)}" style="width:100%;text-align:left"></td><td style="text-align:left"><input type="text" data-colcad="${i}|nome" value="${esc(c.nome)}" style="width:100%;text-align:left"></td><td>${c.manual?'<span class="pill">adicionado</span>':'<span class="pill" style="background:#e8f5e9;color:#166534">planilha</span>'}</td><td><button class="btn light" data-coldel="${i}" style="padding:3px 9px">✕</button></td></tr>`).join(''):`<tr><td colspan="5" class="note" style="text-align:center">${C.lista.length?'Nada encontrado.':'Lista vazia — clique em 🔄 Puxar da planilha ou 📄 Importar arquivo.'}</td></tr>`}
+   ${L.length>400?`<tr><td colspan="5" class="note" style="text-align:center">Mostrando 400 de ${L.length} — use a busca.</td></tr>`:''}
+   </tbody></table></div>
+   <div class="note">Os colaboradores que você adicionar aqui ficam salvos e não somem quando a lista é puxada de novo da planilha.</div></details>`;}
+document.addEventListener('change',e=>{const el=e.target;
+  if(el.id==='colFile'&&el.files&&el.files[0]){colImportar(el.files[0]);el.value='';return;}
+  if(el.dataset&&el.dataset.colcad){const [i,k]=el.dataset.colcad.split('|');const c=colS().lista[+i];c[k]=el.value.trim();c.manual=c.manual||false;touch();scheduleRender();}});
+document.addEventListener('input',e=>{if(e.target.id==='colBusca'){S.colBusca=e.target.value;clearTimeout(window._cbt);window._cbt=setTimeout(()=>{render();const b=$('#colBusca');if(b){b.focus();b.setSelectionRange(b.value.length,b.value.length);}},250);}});
+document.addEventListener('toggle',e=>{if(e.target.classList&&e.target.classList.contains('coldet'))S.colOpen=e.target.open;},true);
+document.addEventListener('click',e=>{
+  const d=e.target.closest('[data-coldel]');if(d){colS().lista.splice(+d.dataset.coldel,1);touch();render();return;}
+  const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act;
+  if(a==='col-puxar')colPuxar();
+  if(a==='col-add'){S.colOpen=true;colS().lista.unshift({cod:'',nome:'',manual:true});touch();render();setTimeout(()=>{const x=document.querySelector('[data-colcad="0|cod"]');if(x)x.focus();},30);}
+  if(a==='col-colunas'){if(!colabRaw){toast('Puxe ou importe a lista primeiro.');return;}colMapAberto=true;colMapear(colabRaw);colMapAberto=false;}
+  if(a==='col-map-ok'){const hi=+$('#colHi').value,nome=+$('#colNome').value,cod=+$('#colCod').value;const ov=document.querySelector('[data-close]');if(ov)ov.click();colAplicar(colabRaw,{nome,cod},hi);}
+  if(a==='hhd-addcolab'){const v=(hhdS().quem||'').trim();if(!v)return;const isCod=/^\d+$|^[A-Z0-9_-]{4,}$/i.test(v)&&!/\s/.test(v);modal(`<h3 style="margin:0 0 8px">Adicionar colaborador</h3>
+    <label style="display:block;margin-bottom:8px;font-weight:700">Código<input id="ncCod" type="text" value="${isCod?esc(v):''}" style="width:100%"></label>
+    <label style="display:block;margin-bottom:12px;font-weight:700">Nome<input id="ncNome" type="text" value="${isCod?'':esc(v)}" style="width:100%"></label>
+    <div class="row" style="gap:8px;justify-content:flex-end"><button class="btn light" data-close>Cancelar</button><button class="btn gold" data-act="hhd-addcolab-ok">Adicionar</button></div>`);setTimeout(()=>{const x=$(isCod?'#ncNome':'#ncCod');if(x)x.focus();},40);}
+  if(a==='hhd-addcolab-ok'){const cod=$('#ncCod').value.trim(),nome=$('#ncNome').value.trim();if(!nome){toast('Digite o nome.');return;}colS().lista.unshift({cod,nome,manual:true});hhdS().quem=cod||nome;const ov=document.querySelector('[data-close]');if(ov)ov.click();touch();render();toast('✓ '+nome+' adicionado(a) à lista.');}
+});
+
 /* ---------- Controle de Handheld ---------- */
 function hhdS(){if(!S.hhd)S.hhd={cad:[],mov:[],quem:'',modo:'auto'};if(!S.hhd.cad)S.hhd.cad=[];if(!S.hhd.mov)S.hhd.mov=[];return S.hhd;}
 const hhdNorm=v=>String(v||'').trim().toUpperCase();
@@ -1362,13 +1431,14 @@ function hhdBipar(cod){
   let tipo=H.modo==='saida'?'saida':H.modo==='entrada'?'entrada':(emUso?'entrada':'saida');
   if(tipo==='entrada'&&!emUso){toast('⚠ '+cod+' não estava em uso — registrado como devolução mesmo assim.');}
   if(tipo==='saida'&&emUso){toast('⚠ '+cod+' já estava em uso com '+(last.quem||'—')+' — registrada nova retirada.');}
-  const quem=tipo==='saida'?(H.quem||'').trim():(last&&last.quem)||'';
-  H.mov.push({cod,tipo,hora:hhdAgora(),quem,cad:!!hhdNome(cod)});
+  let quem,qcod;if(tipo==='saida'){const col=colAchar(H.quem);quem=col?col.nome:(H.quem||'').trim();qcod=col?col.cod:'';}else{quem=(last&&last.quem)||'';qcod=(last&&last.qcod)||'';}
+  H.mov.push({cod,tipo,hora:hhdAgora(),quem,qcod,cad:!!hhdNome(cod)});
   if(!hhdNome(cod))toast('ℹ '+cod+' não está cadastrado — dá para cadastrar na lista abaixo.');
   else if(!(tipo==='entrada'&&!emUso)&&!(tipo==='saida'&&emUso))toast((tipo==='saida'?'📤 Retirado: ':'📥 Devolvido: ')+cod+(hhdNome(cod)?' · '+hhdNome(cod):'')+(quem?' · '+quem:''));
   if(tipo==='saida')H.quem='';
   touch();render();
 }
+function hhdChip(){const q=(hhdS().quem||'').trim();if(!q)return '';const c=colAchar(q);return c?`<b class="pos">✓ ${esc(c.nome)}${c.cod?' · '+esc(c.cod):''}</b>`:`<span class="neg">Não está na lista</span> <button class="btn light" data-act="hhd-addcolab" style="padding:2px 9px;font-size:12px">+ adicionar</button>`;}
 function vHandheld(){
   const H=hhdS();const st=hhdStatus();
   const usos=Object.values(st).filter(m=>m.tipo==='saida').sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
@@ -1382,16 +1452,18 @@ function vHandheld(){
   <div class="card hhdscan"><h2>📟 Bipar handheld <span class="tag">bipe o código de barras do aparelho (ou digite e aperte Enter)</span></h2>
    <div class="hhdrow">
     <label class="hhdf"><span>Código de barras</span><input id="hhdScan" type="text" autocomplete="off" placeholder="Bipe aqui…" autofocus></label>
-    <label class="hhdf"><span>Colaborador (na retirada)</span><input id="hhdQuem" type="text" autocomplete="off" placeholder="Nome / login (opcional)" value="${esc(H.quem||'')}"></label>
+    <label class="hhdf"><span>Colaborador (na retirada) — bipe o crachá ou digite o nome</span><input id="hhdQuem" type="text" list="hhdColabs" autocomplete="off" placeholder="Código ou nome" value="${esc(H.quem||'')}">
+     <datalist id="hhdColabs">${colS().lista.slice(0,3000).map(c=>`<option value="${esc(c.nome)}">${esc(c.cod||'')}</option>`).join('')}</datalist>
+     <span class="hhdcol">${hhdChip()}</span></label>
     <div class="hhdf"><span>Tipo</span><div class="seg">${[['auto','🔁 Automático'],['saida','📤 Retirada'],['entrada','📥 Devolução']].map(([k,l])=>`<button data-hhdmodo="${k}" class="${modo===k?'on':''}">${l}</button>`).join('')}</div></div>
    </div>
-   <div class="note" style="margin-top:8px">No <b>Automático</b>: se o aparelho está na base, a bipagem registra a <b>retirada</b>; se já está em uso, registra a <b>devolução</b>. Preencha o colaborador antes de bipar a retirada.</div></div>
+   <div class="note" style="margin-top:8px">No <b>Automático</b>: se o aparelho está na base, a bipagem registra a <b>retirada</b>; se já está em uso, registra a <b>devolução</b>. Na retirada: bipe o <b>crachá</b> (ou digite o nome) no Colaborador, aperte Enter e bipe o <b>handheld</b>.</div></div>
   <div class="grid2">
    <div class="card"><h2>📤 Em uso agora <span class="tag">${emUso}</span></h2><div class="tw"><table><thead><tr><th style="text-align:left">Código</th><th style="text-align:left">Aparelho</th><th style="text-align:left">Com quem</th><th>Retirado às</th><th>Tempo</th><th></th></tr></thead><tbody>
-    ${usos.length?usos.map(u=>{const mi=hhdMin(u.hora);return `<tr><td style="text-align:left"><b>${esc(u.cod)}</b></td><td style="text-align:left">${esc(hhdNome(u.cod)||'— não cadastrado')}</td><td style="text-align:left">${esc(u.quem||'—')}</td><td class="num">${esc(String(u.hora).slice(0,5))}</td><td class="num"><b class="${mi!=null&&mi>=480?'neg':''}">${mi==null?'–':Math.floor(mi/60)+'h'+String(mi%60).padStart(2,'0')}</b></td><td><button class="btn light" data-hhddev="${esc(u.cod)}" style="padding:4px 10px">📥 Devolver</button></td></tr>`;}).join(''):`<tr><td colspan="6" class="note" style="text-align:center">Nenhum handheld em uso.</td></tr>`}
+    ${usos.length?usos.map(u=>{const mi=hhdMin(u.hora);return `<tr><td style="text-align:left"><b>${esc(u.cod)}</b></td><td style="text-align:left">${esc(hhdNome(u.cod)||'— não cadastrado')}</td><td style="text-align:left">${esc(u.quem||'—')}${u.qcod?`<div class="hhdsm">${esc(u.qcod)}</div>`:''}</td><td class="num">${esc(String(u.hora).slice(0,5))}</td><td class="num"><b class="${mi!=null&&mi>=480?'neg':''}">${mi==null?'–':Math.floor(mi/60)+'h'+String(mi%60).padStart(2,'0')}</b></td><td><button class="btn light" data-hhddev="${esc(u.cod)}" style="padding:4px 10px">📥 Devolver</button></td></tr>`;}).join(''):`<tr><td colspan="6" class="note" style="text-align:center">Nenhum handheld em uso.</td></tr>`}
    </tbody></table></div></div>
    <div class="card"><h2>🕘 Histórico de hoje <span class="tag">mais recentes primeiro</span></h2><div class="tw" style="max-height:420px;overflow-y:auto"><table><thead><tr><th>Hora</th><th style="text-align:left">Código</th><th style="text-align:left">Aparelho</th><th>Tipo</th><th style="text-align:left">Colaborador</th><th></th></tr></thead><tbody>
-    ${H.mov.length?H.mov.map((m,i)=>({m,i})).reverse().map(({m,i})=>`<tr><td class="num">${esc(m.hora)}</td><td style="text-align:left"><b>${esc(m.cod)}</b></td><td style="text-align:left">${esc(hhdNome(m.cod)||'—')}</td><td><span class="pill" style="${m.tipo==='saida'?'background:#fff3cd;color:#8a5a00':'background:#dcfce7;color:#166534'}">${m.tipo==='saida'?'📤 Retirada':'📥 Devolução'}</span></td><td style="text-align:left">${esc(m.quem||'—')}</td><td><button class="btn light" data-hhddel="${i}" title="Apagar esta bipagem" style="padding:3px 9px">✕</button></td></tr>`).join(''):`<tr><td colspan="6" class="note" style="text-align:center">Nenhuma bipagem ainda.</td></tr>`}
+    ${H.mov.length?H.mov.map((m,i)=>({m,i})).reverse().map(({m,i})=>`<tr><td class="num">${esc(m.hora)}</td><td style="text-align:left"><b>${esc(m.cod)}</b></td><td style="text-align:left">${esc(hhdNome(m.cod)||'—')}</td><td><span class="pill" style="${m.tipo==='saida'?'background:#fff3cd;color:#8a5a00':'background:#dcfce7;color:#166534'}">${m.tipo==='saida'?'📤 Retirada':'📥 Devolução'}</span></td><td style="text-align:left">${esc(m.quem||'—')}${m.qcod?`<div class="hhdsm">${esc(m.qcod)}</div>`:''}</td><td><button class="btn light" data-hhddel="${i}" title="Apagar esta bipagem" style="padding:3px 9px">✕</button></td></tr>`).join(''):`<tr><td colspan="6" class="note" style="text-align:center">Nenhuma bipagem ainda.</td></tr>`}
    </tbody></table></div>
    <div class="row" style="gap:8px;margin-top:8px"><button class="btn light" data-act="hhd-csv">⬇ Exportar CSV</button></div></div>
   </div>
@@ -1401,17 +1473,18 @@ function vHandheld(){
    </tbody></table></div>
    <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn light" data-act="hhd-add">+ aparelho</button><button class="btn light" data-act="hhd-lote">📥 Cadastrar vários de uma vez</button>
     ${(()=>{const nc=[...new Set(H.mov.map(m=>m.cod).filter(c=>!hhdNome(c)))];return nc.length?`<button class="btn light" data-act="hhd-addnc">+ Cadastrar os ${nc.length} bipados que não estão na lista</button>`:'';})()}</div>
-   <div class="note">Dica: em "Cadastrar vários" você pode bipar um aparelho atrás do outro (um por linha) ou colar da planilha "código;nome".</div></div>`;
+   <div class="note">Dica: em "Cadastrar vários" você pode bipar um aparelho atrás do outro (um por linha) ou colar da planilha "código;nome".</div></div>`+colCard();
   return h;
 }
-function hhdCsv(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const L=[['Hora','Código','Aparelho','Tipo','Colaborador'].map(q).join(';')];
-  hhdS().mov.forEach(m=>L.push([m.hora,m.cod,hhdNome(m.cod),m.tipo==='saida'?'Retirada':'Devolução',m.quem].map(q).join(';')));
+function hhdCsv(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const L=[['Hora','Código','Aparelho','Tipo','Colaborador','Código colaborador'].map(q).join(';')];
+  hhdS().mov.forEach(m=>L.push([m.hora,m.cod,hhdNome(m.cod),m.tipo==='saida'?'Retirada':'Devolução',m.quem,m.qcod||''].map(q).join(';')));
   const b=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='handheld-'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();a.remove();}
-window.addEventListener('keydown',e=>{if(e.target&&e.target.id==='hhdScan'&&e.key==='Enter'){e.preventDefault();e.stopPropagation();const v=e.target.value;e.target.value='';hhdBipar(v);}},true);
+window.addEventListener('keydown',e=>{if(e.target&&e.target.id==='hhdQuem'&&e.key==='Enter'){e.preventDefault();e.stopPropagation();hhdS().quem=e.target.value;touch();const sc=$('#hhdScan');if(sc)sc.focus();return;}
+  if(e.target&&e.target.id==='hhdScan'&&e.key==='Enter'){e.preventDefault();e.stopPropagation();const v=e.target.value;e.target.value='';hhdBipar(v);}},true);
 document.addEventListener('change',e=>{const el=e.target;
-  if(el.id==='hhdQuem'){hhdS().quem=el.value;touch();return;}
+  if(el.id==='hhdQuem'){hhdS().quem=el.value;touch();const ch=document.querySelector('.hhdcol');if(ch)ch.innerHTML=hhdChip();return;}
   if(el.dataset&&el.dataset.hhdcad){const [i,k]=el.dataset.hhdcad.split('|');hhdS().cad[+i][k]=k==='cod'?hhdNorm(el.value):el.value.trim();touch();scheduleRender();}});
-document.addEventListener('input',e=>{if(e.target.id==='hhdQuem'){hhdS().quem=e.target.value;}});
+document.addEventListener('input',e=>{if(e.target.id==='hhdQuem'){hhdS().quem=e.target.value;const ch=document.querySelector('.hhdcol');if(ch)ch.innerHTML=hhdChip();}});
 document.addEventListener('click',e=>{
   const m=e.target.closest('[data-hhdmodo]');if(m){hhdS().modo=m.dataset.hhdmodo;touch();render();return;}
   const d=e.target.closest('[data-hhddev]');if(d){const H=hhdS();const prev=H.modo;H.modo='entrada';hhdBipar(d.dataset.hhddev);H.modo=prev;touch();return;}
