@@ -416,6 +416,11 @@ body.dark{background:#0e3f80!important}
 .prodg{grid-template-columns:repeat(auto-fit,minmax(min(100%,560px),1fr))!important}
 .prodg input{max-width:70px;margin:auto;display:block;text-align:center}
 .hhwrap [style*="color:var(--pes)"]{color:#6ee7a8!important}.hhwrap [style*="color:var(--sor)"]{color:#ffd166!important}.hhwrap [style*="color:var(--etq)"]{color:#9fd0ff!important}
+.hhdrow{display:grid;grid-template-columns:1.4fr 1fr auto;gap:14px;align-items:end}
+.hhdf{display:flex;flex-direction:column;gap:6px}.hhdf>span{font-size:12px;font-weight:700;color:var(--mute)}
+#hhdScan{font-size:22px!important;font-weight:800!important;padding:12px 14px;border:3px solid #3483fa!important;border-radius:10px;background:#fff!important;color:#2d3277!important;letter-spacing:1px}
+#hhdQuem{font-size:16px!important;padding:12px;border-radius:10px}
+@media (max-width:900px){.hhdrow{grid-template-columns:1fr}}
 </style>
 </head>
 <body>
@@ -444,7 +449,7 @@ body.dark{background:#0e3f80!important}
 const CICLOS=['AM','PM','SD','CPM'];
 const ORD=[0,1,2,3,4,5,8,6,7];
 const OUTH=['VUC','Inb.','Mov.','Gol.','Pós-sort.','Exp. CPM','Férias','ABS','Almoço'];
-const TABS=[['dashboard','Dashboard'],['ciclo','Ciclo'],['resumo','Resumo'],['horahora','Hora a Hora'],['dashhh','Dashboard Hora a Hora'],['justificativas','Justificativas'],['controle','Controle de Produtividade'],['pd','PD — Previsão']];
+const TABS=[['dashboard','Dashboard'],['ciclo','Ciclo'],['resumo','Resumo'],['horahora','Hora a Hora'],['dashhh','Dashboard Hora a Hora'],['handheld','Controle de Handheld'],['justificativas','Justificativas'],['controle','Controle de Produtividade'],['pd','PD — Previsão']];
 let S=JSON.parse(document.getElementById('app-state').textContent);
 const LS='kn-labor-produtividade-v1';
 try{const d=localStorage.getItem(LS);if(d){const o=JSON.parse(d);if(o&&o._savedAt&&(!S._savedAt||o._savedAt>S._savedAt))S=o;}}catch(e){}
@@ -1344,13 +1349,90 @@ document.addEventListener('drop',e=>{const d=e.target.closest&&e.target.closest(
 document.addEventListener('paste',e=>{if(tab!=='guiada')return;const it=[...(e.clipboardData&&e.clipboardData.items||[])].find(x=>x.type.startsWith('image/'));if(it){gSetImg(it.getAsFile());toast('Imagem colada.');}});
 if(false){claude.use('sample').then(async s=>{try{if(s&&s.limits){const l=await s.limits();if(!l||!l.images)s=null;else gImgMax=Math.max(1,Math.min(5,l.images.maxCount||1));}}catch(e){}gSample=s||null;if(tab==='guiada')render();}).catch(()=>{});}
 
-const VIEWS={dashboard:vDash,ciclo:vCiclo,resumo:vResumo,horahora:vHH,justificativas:vJust,controle:vControle,pd:vPD,dashhh:()=>vDashHH(S.dashCiclo&&CICLOS.includes(S.dashCiclo)?S.dashCiclo:S.cicloSel)};
+/* ---------- Controle de Handheld ---------- */
+function hhdS(){if(!S.hhd)S.hhd={cad:[],mov:[],quem:'',modo:'auto'};if(!S.hhd.cad)S.hhd.cad=[];if(!S.hhd.mov)S.hhd.mov=[];return S.hhd;}
+const hhdNorm=v=>String(v||'').trim().toUpperCase();
+function hhdNome(cod){const c=hhdS().cad.find(x=>hhdNorm(x.cod)===hhdNorm(cod));return c?c.nome:'';}
+function hhdStatus(){const st={};hhdS().mov.forEach(m=>{st[hhdNorm(m.cod)]=m;});return st;}
+function hhdAgora(){const d=new Date();return d.toLocaleTimeString('pt-BR',{hour:'2-digit',minute:'2-digit',second:'2-digit'});}
+function hhdMin(a){const d=new Date();const [h,m]=String(a||'').split(':').map(Number);if(isNaN(h))return null;let x=(d.getHours()*60+d.getMinutes())-(h*60+m);if(x<0)x+=1440;return x;}
+function hhdBipar(cod){
+  const H=hhdS();cod=hhdNorm(cod);if(!cod)return;
+  const last=hhdStatus()[cod];const emUso=last&&last.tipo==='saida';
+  let tipo=H.modo==='saida'?'saida':H.modo==='entrada'?'entrada':(emUso?'entrada':'saida');
+  if(tipo==='entrada'&&!emUso){toast('⚠ '+cod+' não estava em uso — registrado como devolução mesmo assim.');}
+  if(tipo==='saida'&&emUso){toast('⚠ '+cod+' já estava em uso com '+(last.quem||'—')+' — registrada nova retirada.');}
+  const quem=tipo==='saida'?(H.quem||'').trim():(last&&last.quem)||'';
+  H.mov.push({cod,tipo,hora:hhdAgora(),quem,cad:!!hhdNome(cod)});
+  if(!hhdNome(cod))toast('ℹ '+cod+' não está cadastrado — dá para cadastrar na lista abaixo.');
+  else if(!(tipo==='entrada'&&!emUso)&&!(tipo==='saida'&&emUso))toast((tipo==='saida'?'📤 Retirado: ':'📥 Devolvido: ')+cod+(hhdNome(cod)?' · '+hhdNome(cod):'')+(quem?' · '+quem:''));
+  if(tipo==='saida')H.quem='';
+  touch();render();
+}
+function vHandheld(){
+  const H=hhdS();const st=hhdStatus();
+  const usos=Object.values(st).filter(m=>m.tipo==='saida').sort((a,b)=>String(a.hora).localeCompare(String(b.hora)));
+  const tot=H.cad.length,emUso=usos.length,disp=Math.max(0,tot-usos.filter(u=>hhdNome(u.cod)).length);
+  const modo=H.modo||'auto';
+  let h=`<div class="kpis">
+   <div class="kpi etq"><div class="l">Handhelds cadastrados</div><div class="v">${fmt(tot)}</div><div class="s">lista abaixo</div></div>
+   <div class="kpi sor"><div class="l">Em uso agora</div><div class="v">${fmt(emUso)}</div><div class="s">retirados e não devolvidos</div></div>
+   <div class="kpi pes"><div class="l">Disponíveis</div><div class="v">${fmt(disp)}</div><div class="s">cadastrados que estão na base</div></div>
+   <div class="kpi gold"><div class="l">Bipagens hoje</div><div class="v">${fmt(H.mov.length)}</div><div class="s">${H.mov.filter(m=>m.tipo==='saida').length} retiradas · ${H.mov.filter(m=>m.tipo==='entrada').length} devoluções</div></div></div>
+  <div class="card hhdscan"><h2>📟 Bipar handheld <span class="tag">bipe o código de barras do aparelho (ou digite e aperte Enter)</span></h2>
+   <div class="hhdrow">
+    <label class="hhdf"><span>Código de barras</span><input id="hhdScan" type="text" autocomplete="off" placeholder="Bipe aqui…" autofocus></label>
+    <label class="hhdf"><span>Colaborador (na retirada)</span><input id="hhdQuem" type="text" autocomplete="off" placeholder="Nome / login (opcional)" value="${esc(H.quem||'')}"></label>
+    <div class="hhdf"><span>Tipo</span><div class="seg">${[['auto','🔁 Automático'],['saida','📤 Retirada'],['entrada','📥 Devolução']].map(([k,l])=>`<button data-hhdmodo="${k}" class="${modo===k?'on':''}">${l}</button>`).join('')}</div></div>
+   </div>
+   <div class="note" style="margin-top:8px">No <b>Automático</b>: se o aparelho está na base, a bipagem registra a <b>retirada</b>; se já está em uso, registra a <b>devolução</b>. Preencha o colaborador antes de bipar a retirada.</div></div>
+  <div class="grid2">
+   <div class="card"><h2>📤 Em uso agora <span class="tag">${emUso}</span></h2><div class="tw"><table><thead><tr><th style="text-align:left">Código</th><th style="text-align:left">Aparelho</th><th style="text-align:left">Com quem</th><th>Retirado às</th><th>Tempo</th><th></th></tr></thead><tbody>
+    ${usos.length?usos.map(u=>{const mi=hhdMin(u.hora);return `<tr><td style="text-align:left"><b>${esc(u.cod)}</b></td><td style="text-align:left">${esc(hhdNome(u.cod)||'— não cadastrado')}</td><td style="text-align:left">${esc(u.quem||'—')}</td><td class="num">${esc(String(u.hora).slice(0,5))}</td><td class="num"><b class="${mi!=null&&mi>=480?'neg':''}">${mi==null?'–':Math.floor(mi/60)+'h'+String(mi%60).padStart(2,'0')}</b></td><td><button class="btn light" data-hhddev="${esc(u.cod)}" style="padding:4px 10px">📥 Devolver</button></td></tr>`;}).join(''):`<tr><td colspan="6" class="note" style="text-align:center">Nenhum handheld em uso.</td></tr>`}
+   </tbody></table></div></div>
+   <div class="card"><h2>🕘 Histórico de hoje <span class="tag">mais recentes primeiro</span></h2><div class="tw" style="max-height:420px;overflow-y:auto"><table><thead><tr><th>Hora</th><th style="text-align:left">Código</th><th style="text-align:left">Aparelho</th><th>Tipo</th><th style="text-align:left">Colaborador</th><th></th></tr></thead><tbody>
+    ${H.mov.length?H.mov.map((m,i)=>({m,i})).reverse().map(({m,i})=>`<tr><td class="num">${esc(m.hora)}</td><td style="text-align:left"><b>${esc(m.cod)}</b></td><td style="text-align:left">${esc(hhdNome(m.cod)||'—')}</td><td><span class="pill" style="${m.tipo==='saida'?'background:#fff3cd;color:#8a5a00':'background:#dcfce7;color:#166534'}">${m.tipo==='saida'?'📤 Retirada':'📥 Devolução'}</span></td><td style="text-align:left">${esc(m.quem||'—')}</td><td><button class="btn light" data-hhddel="${i}" title="Apagar esta bipagem" style="padding:3px 9px">✕</button></td></tr>`).join(''):`<tr><td colspan="6" class="note" style="text-align:center">Nenhuma bipagem ainda.</td></tr>`}
+   </tbody></table></div>
+   <div class="row" style="gap:8px;margin-top:8px"><button class="btn light" data-act="hhd-csv">⬇ Exportar CSV</button></div></div>
+  </div>
+  <div class="card"><h2>📋 Cadastro de handhelds <span class="tag">${tot} aparelho(s) · fica salvo de um dia para o outro</span></h2>
+   <div class="tw"><table><thead><tr><th>#</th><th style="text-align:left">Código de barras ✎</th><th style="text-align:left">Nome / número do aparelho ✎</th><th>Situação</th><th></th></tr></thead><tbody>
+   ${H.cad.map((c,i)=>{const s=st[hhdNorm(c.cod)];const uso=s&&s.tipo==='saida';return `<tr><td class="lbl">${i+1}</td><td style="text-align:left"><input type="text" data-hhdcad="${i}|cod" value="${esc(c.cod)}" style="width:100%;text-align:left"></td><td style="text-align:left"><input type="text" data-hhdcad="${i}|nome" value="${esc(c.nome)}" style="width:100%;text-align:left" placeholder="ex.: HH-01"></td><td>${uso?`<span class="pill" style="background:#fff3cd;color:#8a5a00">Em uso · ${esc(s.quem||'—')}</span>`:'<span class="pill" style="background:#dcfce7;color:#166534">Na base</span>'}</td><td><button class="btn light" data-hhdcaddel="${i}" style="padding:3px 9px">✕</button></td></tr>`;}).join('')}
+   </tbody></table></div>
+   <div class="row" style="gap:8px;margin-top:8px;flex-wrap:wrap"><button class="btn light" data-act="hhd-add">+ aparelho</button><button class="btn light" data-act="hhd-lote">📥 Cadastrar vários de uma vez</button>
+    ${(()=>{const nc=[...new Set(H.mov.map(m=>m.cod).filter(c=>!hhdNome(c)))];return nc.length?`<button class="btn light" data-act="hhd-addnc">+ Cadastrar os ${nc.length} bipados que não estão na lista</button>`:'';})()}</div>
+   <div class="note">Dica: em "Cadastrar vários" você pode bipar um aparelho atrás do outro (um por linha) ou colar da planilha "código;nome".</div></div>`;
+  return h;
+}
+function hhdCsv(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const L=[['Hora','Código','Aparelho','Tipo','Colaborador'].map(q).join(';')];
+  hhdS().mov.forEach(m=>L.push([m.hora,m.cod,hhdNome(m.cod),m.tipo==='saida'?'Retirada':'Devolução',m.quem].map(q).join(';')));
+  const b=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='handheld-'+new Date().toISOString().slice(0,10)+'.csv';document.body.appendChild(a);a.click();a.remove();}
+window.addEventListener('keydown',e=>{if(e.target&&e.target.id==='hhdScan'&&e.key==='Enter'){e.preventDefault();e.stopPropagation();const v=e.target.value;e.target.value='';hhdBipar(v);}},true);
+document.addEventListener('change',e=>{const el=e.target;
+  if(el.id==='hhdQuem'){hhdS().quem=el.value;touch();return;}
+  if(el.dataset&&el.dataset.hhdcad){const [i,k]=el.dataset.hhdcad.split('|');hhdS().cad[+i][k]=k==='cod'?hhdNorm(el.value):el.value.trim();touch();scheduleRender();}});
+document.addEventListener('input',e=>{if(e.target.id==='hhdQuem'){hhdS().quem=e.target.value;}});
+document.addEventListener('click',e=>{
+  const m=e.target.closest('[data-hhdmodo]');if(m){hhdS().modo=m.dataset.hhdmodo;touch();render();return;}
+  const d=e.target.closest('[data-hhddev]');if(d){const H=hhdS();const prev=H.modo;H.modo='entrada';hhdBipar(d.dataset.hhddev);H.modo=prev;touch();return;}
+  const x=e.target.closest('[data-hhddel]');if(x){hhdS().mov.splice(+x.dataset.hhddel,1);touch();render();return;}
+  const cd=e.target.closest('[data-hhdcaddel]');if(cd){hhdS().cad.splice(+cd.dataset.hhdcaddel,1);touch();render();return;}
+  const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act;
+  if(a==='hhd-add'){hhdS().cad.push({cod:'',nome:''});touch();render();}
+  if(a==='hhd-csv')hhdCsv();
+  if(a==='hhd-addnc'){const H=hhdS();[...new Set(H.mov.map(m=>m.cod).filter(c=>!hhdNome(c)))].forEach(c=>H.cad.push({cod:c,nome:''}));touch();render();}
+  if(a==='hhd-lote'){modal(`<h3 style="margin:0 0 8px">📥 Cadastrar vários handhelds</h3><div class="note" style="margin:0 0 8px">Um por linha. Bipe um atrás do outro, ou cole "código;nome" (ou código e nome separados por tab).</div><textarea id="hhdLote" rows="10" style="width:100%;font:600 15px Inter,sans-serif;padding:10px;border-radius:8px;border:1px solid #ccc"></textarea><div class="row" style="gap:8px;margin-top:10px;justify-content:flex-end"><button class="btn light" data-close>Cancelar</button><button class="btn gold" data-act="hhd-lote-ok">Cadastrar</button></div>`);setTimeout(()=>{const t=document.getElementById('hhdLote');if(t)t.focus();},50);}
+  if(a==='hhd-lote-ok'){const t=document.getElementById('hhdLote');const H=hhdS();let n=0;String(t&&t.value||'').split(/\r?\n/).forEach(l=>{const p=l.split(/[;\t]/);const cod=hhdNorm(p[0]);if(!cod||H.cad.some(c=>hhdNorm(c.cod)===cod))return;H.cad.push({cod,nome:(p[1]||'').trim()});n++;});const ov=document.querySelector('[data-close]');if(ov)ov.click();touch();render();toast(n+' aparelho(s) cadastrado(s).');}
+});
+
+const VIEWS={dashboard:vDash,ciclo:vCiclo,resumo:vResumo,horahora:vHH,justificativas:vJust,controle:vControle,pd:vPD,handheld:vHandheld,dashhh:()=>vDashHH(S.dashCiclo&&CICLOS.includes(S.dashCiclo)?S.dashCiclo:S.cicloSel)};
 function elKey(el){if(!el||el.tagName!=='INPUT')return null;for(const a of ['p','vol','h','corpick','justopc','glig'])if(el.dataset[a]!=null)return '[data-'+a+'="'+el.dataset[a]+'"]'+(a==='h'?'[data-j="'+el.dataset.j+'"]':'');return null;}
 function render(){
   const k=elKey(document.activeElement);let selS=null,selE=null;try{if(k){selS=document.activeElement.selectionStart;selE=document.activeElement.selectionEnd;}}catch(e){}
   $('#nav').innerHTML=TABS.map(([k,l])=>`<button data-tab="${k}" class="${k===tab?'on':''}">${l}</button>`).join('');
   const y=window.scrollY;$('#app').innerHTML=tab==='horahora'?VIEWS[tab]():`<div class="${temaCls()}">${VIEWS[tab]()}</div>`;window.scrollTo(0,y);setStatus();
   if(k){const el=document.querySelector(k);if(el){el.focus({preventScroll:true});try{if(el.type==='number'||el.type==='time')el.select&&el.select();}catch(e){}}}
+  if(tab==='handheld'&&!$('#modal').classList.contains('on')){const ae=document.activeElement;if(!ae||ae===document.body){const sc=$('#hhdScan');if(sc)sc.focus({preventScroll:true});}}
 }
 let _rt=null;function scheduleRender(){clearTimeout(_rt);_rt=setTimeout(render,0);}
 
@@ -1473,6 +1555,7 @@ function zerarPessoas(){
     if(S.hcReal)S.hcReal[c]=(S.grid[c]||[]).map(()=>null);
     if(S.ajuste&&S.ajuste[c])S.ajuste[c]={buffered:null,etqBranca:null};});
   (S.expedicao||[]).forEach(r=>r[2]=null);
+  if(S.hhd)S.hhd.mov=[];
   S.realizado={};S.ctlRec={};S.hcHora={};S.banc={};if(S.hh)Object.values(S.hh).forEach(o=>Object.values(o).forEach(L=>L.forEach(r=>r.real=null)));
   if(S.pdPend)S.pdPend={buffered:null,etqBranca:null};
 }
