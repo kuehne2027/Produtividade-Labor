@@ -1440,7 +1440,7 @@ function pedirSenha(motivo,cb){if(senhaOk()){cb();return;}senhaPend=cb;
    <div class="row" style="gap:8px;justify-content:flex-end;margin-top:6px"><button class="btn light" data-close>Cancelar</button><button class="btn gold" id="senhaOkBtn">Confirmar</button></div>`);
   setTimeout(()=>{const i=$('#senhaIn');if(i)i.focus();},40);}
 async function senhaConferir(){const i=$('#senhaIn');if(!i)return;const h=await sha256hex(i.value.trim());
-  if(h===SENHA_HASH){senhaAte=Date.now()+5*60*1000;const cb=senhaPend;senhaPend=null;const c=document.querySelector('#modalBox [data-close]');if(c)c.click();if(cb)setTimeout(cb,30);toast('🔓 Liberado por 5 minutos.');}
+  if(h===SENHA_HASH){const cb=senhaPend;senhaPend=null;const c=document.querySelector('#modalBox [data-close]');if(c)c.click();setTimeout(()=>{senhaAte=Date.now()+2000;try{if(cb)cb();}finally{senhaAte=0;}},30);toast('🔓 Senha correta.');}
   else{const m=$('#senhaMsg');if(m)m.textContent='Senha incorreta.';i.value='';i.focus();}}
 document.addEventListener('click',e=>{if(e.target.closest('#senhaOkBtn')){senhaConferir();}});
 window.addEventListener('keydown',e=>{if(e.target&&e.target.id==='senhaIn'&&e.key==='Enter'){e.preventDefault();e.stopPropagation();senhaConferir();}},true);
