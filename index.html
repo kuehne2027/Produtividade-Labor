@@ -453,7 +453,7 @@ body.dark{background:#0e3f80!important}
 const CICLOS=['AM','PM','SD','CPM'];
 const ORD=[0,1,2,3,4,5,8,6,7];
 const OUTH=['VUC','Inb.','Mov.','Gol.','Pós-sort.','Exp. CPM','Férias','ABS','Almoço'];
-const TABS=[['dashboard','Dashboard'],['ciclo','Ciclo'],['resumo','Resumo'],['horahora','Hora a Hora'],['dashhh','Dashboard Hora a Hora'],['handheld','Controle de Handheld'],['justificativas','Justificativas'],['controle','Controle de Produtividade'],['pd','PD — Previsão']];
+const TABS=[['dashboard','Dashboard'],['ciclo','Ciclo'],['resumo','Resumo'],['horahora','Hora a Hora'],['dashhh','Dashboard Hora a Hora'],['handheld','Controle de Handheld'],['hhdhist','Histórico Handheld'],['justificativas','Justificativas'],['controle','Controle de Produtividade'],['pd','PD — Previsão']];
 let S=JSON.parse(document.getElementById('app-state').textContent);
 const LS='kn-labor-produtividade-v1';
 try{const d=localStorage.getItem(LS);if(d){const o=JSON.parse(d);if(o&&o._savedAt&&(!S._savedAt||o._savedAt>S._savedAt))S=o;}}catch(e){}
@@ -1485,7 +1485,7 @@ function hhdBipar(cod){
   if(tipo==='entrada'&&!emUso){toast('⚠ '+cod+' não estava em uso — registrado como devolução mesmo assim.');}
   if(tipo==='saida'&&emUso){toast('⚠ '+cod+' já estava em uso com '+(last.quem||'—')+' — registrada nova retirada.');}
   let quem,qcod;if(tipo==='saida'){const col=colAchar(H.quem);quem=col?col.nome:(H.quem||'').trim();qcod=col?col.cod:'';}else{quem=(last&&last.quem)||'';qcod=(last&&last.qcod)||'';}
-  H.mov.push({cod,tipo,hora:hhdAgora(),quem,qcod,cad:!!hhdNome(cod)});
+  hhdHist();const mv={id:'m'+Date.now().toString(36)+Math.random().toString(36).slice(2,6),data:hhdDataISO(),cod,tipo,hora:hhdAgora(),quem,qcod,cad:!!hhdNome(cod)};H.mov.push(mv);S.hhdHist.push({...mv});
   if(!hhdNome(cod))toast('ℹ '+cod+' não está cadastrado — dá para cadastrar na lista abaixo.');
   else if(!(tipo==='entrada'&&!emUso)&&!(tipo==='saida'&&emUso))toast((tipo==='saida'?'📤 Retirado: ':'📥 Devolvido: ')+cod+(hhdNome(cod)?' · '+hhdNome(cod):'')+(quem?' · '+quem:''));
   if(tipo==='saida')H.quem='';
@@ -1541,7 +1541,7 @@ document.addEventListener('input',e=>{if(e.target.id==='hhdQuem'){hhdS().quem=e.
 document.addEventListener('click',e=>{
   const m=e.target.closest('[data-hhdmodo]');if(m){hhdS().modo=m.dataset.hhdmodo;touch();render();return;}
   const d=e.target.closest('[data-hhddev]');if(d){const H=hhdS();const prev=H.modo;H.modo='entrada';hhdBipar(d.dataset.hhddev);H.modo=prev;touch();return;}
-  const x=e.target.closest('[data-hhddel]');if(x){hhdS().mov.splice(+x.dataset.hhddel,1);touch();render();return;}
+  const x=e.target.closest('[data-hhddel]');if(x){const rm=hhdS().mov.splice(+x.dataset.hhddel,1)[0];if(rm&&rm.id&&S.hhdHist)S.hhdHist=S.hhdHist.filter(m=>m.id!==rm.id);touch();render();return;}
   const cd=e.target.closest('[data-hhdcaddel]');if(cd){hhdS().cad.splice(+cd.dataset.hhdcaddel,1);touch();render();return;}
   const t=e.target.closest('[data-act]');if(!t)return;const a=t.dataset.act;
   if(a==='hhd-add'){hhdS().cad.push({cod:'',nome:''});touch();render();}
@@ -1551,7 +1551,43 @@ document.addEventListener('click',e=>{
   if(a==='hhd-lote-ok'){const t=document.getElementById('hhdLote');const H=hhdS();let n=0;String(t&&t.value||'').split(/\r?\n/).forEach(l=>{const p=l.split(/[;\t]/);const cod=hhdNorm(p[0]);if(!cod||H.cad.some(c=>hhdNorm(c.cod)===cod))return;H.cad.push({cod,nome:(p[1]||'').trim()});n++;});const ov=document.querySelector('[data-close]');if(ov)ov.click();touch();render();toast(n+' aparelho(s) cadastrado(s).');}
 });
 
-const VIEWS={dashboard:vDash,ciclo:vCiclo,resumo:vResumo,horahora:vHH,justificativas:vJust,controle:vControle,pd:vPD,handheld:vHandheld,dashhh:()=>vDashHH(S.dashCiclo&&CICLOS.includes(S.dashCiclo)?S.dashCiclo:S.cicloSel)};
+/* ---- Histórico permanente de handheld (não zera) ---- */
+function hhdHist(){if(!S.hhdHist){S.hhdHist=[];const d=new Date();(hhdS().mov||[]).forEach(m=>{if(!m.id)m.id='m'+Math.random().toString(36).slice(2,10);S.hhdHist.push({...m,data:m.data||hhdDataISO(d)});});}return S.hhdHist;}
+function hhdDataISO(d){d=d||new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+const hhdDataBR=iso=>{const p=String(iso||'').split('-');return p.length===3?p[2]+'/'+p[1]+'/'+p[0]:iso;};
+function hhdHistFiltro(){const F=S.hhdHF||(S.hhdHF={data:'__todas',tipo:'__todos',q:''});const q=colNorm(F.q||'');
+  return hhdHist().filter(m=>(F.data==='__todas'||m.data===F.data)&&(F.tipo==='__todos'||m.tipo===F.tipo)&&(!q||[m.cod,hhdNome(m.cod),m.quem,m.qcod].some(x=>colNorm(x).includes(q))));}
+function vHhdHist(){
+  const H=hhdHist();const F=S.hhdHF||(S.hhdHF={data:'__todas',tipo:'__todos',q:''});
+  const datas=[...new Set(H.map(m=>m.data))].sort().reverse();
+  const L=hhdHistFiltro().slice().sort((a,b)=>(b.data+b.hora).localeCompare(a.data+a.hora));
+  const ret=L.filter(m=>m.tipo==='saida').length,dev=L.length-ret;
+  let h=`<div class="kpis">
+   <div class="kpi etq"><div class="l">Registros</div><div class="v">${fmt(L.length)}</div><div class="s">${F.data==='__todas'?'todos os dias':'em '+hhdDataBR(F.data)}</div></div>
+   <div class="kpi sor"><div class="l">Retiradas</div><div class="v">${fmt(ret)}</div><div class="s">📤</div></div>
+   <div class="kpi pes"><div class="l">Devoluções</div><div class="v">${fmt(dev)}</div><div class="s">📥</div></div>
+   <div class="kpi gold"><div class="l">Dias com registro</div><div class="v">${fmt(datas.length)}</div><div class="s">${datas.length?'desde '+hhdDataBR(datas[datas.length-1]):'—'}</div></div></div>
+  <div class="card"><h2>🗂️ Histórico de Handheld <span class="tag">fica guardado — o "Zerar pessoas" e o dia novo não apagam</span></h2>
+   <div class="row" style="gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px">
+    <label style="font-weight:700;font-size:13px">Dia <select id="hhfData" class="gsel" style="width:auto"><option value="__todas">Todos</option>${datas.map(d=>`<option value="${d}" ${F.data===d?'selected':''}>${hhdDataBR(d)}</option>`).join('')}</select></label>
+    <span class="seg">${[['__todos','Todos'],['saida','📤 Retiradas'],['entrada','📥 Devoluções']].map(([k,l])=>`<button data-hhft="${k}" class="${F.tipo===k?'on':''}">${l}</button>`).join('')}</span>
+    <input id="hhfQ" type="text" placeholder="🔎 Colaborador, Groot ou aparelho" value="${esc(F.q||'')}" style="max-width:300px">
+    <button class="btn light" data-act="hhf-csv" style="margin-left:auto">⬇ Exportar CSV</button></div>
+   <div class="tw" style="max-height:620px;overflow-y:auto"><table><thead><tr><th>Data</th><th>Hora</th><th style="text-align:left">Código</th><th style="text-align:left">Aparelho</th><th>Tipo</th><th style="text-align:left">Colaborador</th><th>Groot</th></tr></thead><tbody>
+   ${L.length?L.slice(0,1500).map(m=>`<tr><td class="num">${hhdDataBR(m.data)}</td><td class="num">${esc(m.hora)}</td><td style="text-align:left"><b>${esc(m.cod)}</b></td><td style="text-align:left">${esc(hhdNome(m.cod)||'—')}</td><td><span class="pill" style="${m.tipo==='saida'?'background:#fff3cd;color:#8a5a00':'background:#dcfce7;color:#166534'}">${m.tipo==='saida'?'📤 Retirada':'📥 Devolução'}</span></td><td style="text-align:left">${esc(m.quem||'—')}</td><td class="num">${esc(m.qcod||'—')}</td></tr>`).join(''):`<tr><td colspan="7" class="note" style="text-align:center">Nenhum registro${H.length?' com esse filtro':' ainda — as bipagens da aba Controle de Handheld aparecem aqui'}.</td></tr>`}
+   ${L.length>1500?`<tr><td colspan="7" class="note" style="text-align:center">Mostrando 1.500 de ${fmt(L.length)} — use os filtros ou exporte o CSV.</td></tr>`:''}
+   </tbody></table></div>
+   <div class="note">Cada bipagem da aba <b>Controle de Handheld</b> entra aqui com a data. O "Zerar pessoas" e a virada do dia limpam só a lista do dia na outra aba — este histórico continua.</div></div>`;
+  return h;}
+function hhfCsv(){const q=v=>'"'+String(v==null?'':v).replace(/"/g,'""')+'"';const L=[['Data','Hora','Código','Aparelho','Tipo','Colaborador','Groot'].map(q).join(';')];
+  hhdHistFiltro().slice().sort((a,b)=>(a.data+a.hora).localeCompare(b.data+b.hora)).forEach(m=>L.push([hhdDataBR(m.data),m.hora,m.cod,hhdNome(m.cod),m.tipo==='saida'?'Retirada':'Devolução',m.quem,m.qcod||''].map(q).join(';')));
+  const b=new Blob(['﻿'+L.join('\r\n')],{type:'text/csv'});const a=document.createElement('a');a.href=URL.createObjectURL(b);a.download='historico-handheld.csv';document.body.appendChild(a);a.click();a.remove();}
+document.addEventListener('change',e=>{if(e.target.id==='hhfData'){(S.hhdHF=S.hhdHF||{}).data=e.target.value;touch();render();}});
+document.addEventListener('input',e=>{if(e.target.id==='hhfQ'){(S.hhdHF=S.hhdHF||{data:'__todas',tipo:'__todos'}).q=e.target.value;clearTimeout(window._hft);window._hft=setTimeout(()=>{render();const b=$('#hhfQ');if(b){b.focus();b.setSelectionRange(b.value.length,b.value.length);}},250);}});
+document.addEventListener('click',e=>{const t=e.target.closest('[data-hhft]');if(t){(S.hhdHF=S.hhdHF||{data:'__todas',q:''}).tipo=t.dataset.hhft;touch();render();return;}
+  const a=e.target.closest('[data-act="hhf-csv"]');if(a)hhfCsv();});
+
+const VIEWS={dashboard:vDash,ciclo:vCiclo,resumo:vResumo,horahora:vHH,justificativas:vJust,controle:vControle,pd:vPD,handheld:vHandheld,hhdhist:vHhdHist,dashhh:()=>vDashHH(S.dashCiclo&&CICLOS.includes(S.dashCiclo)?S.dashCiclo:S.cicloSel)};
 function elKey(el){if(!el||el.tagName!=='INPUT')return null;for(const a of ['p','vol','h','corpick','justopc','glig'])if(el.dataset[a]!=null)return '[data-'+a+'="'+el.dataset[a]+'"]'+(a==='h'?'[data-j="'+el.dataset.j+'"]':'');return null;}
 function render(){
   const k=elKey(document.activeElement);let selS=null,selE=null;try{if(k){selS=document.activeElement.selectionStart;selE=document.activeElement.selectionEnd;}}catch(e){}
@@ -1681,7 +1717,7 @@ function zerarPessoas(){
     if(S.hcReal)S.hcReal[c]=(S.grid[c]||[]).map(()=>null);
     if(S.ajuste&&S.ajuste[c])S.ajuste[c]={buffered:null,etqBranca:null};});
   (S.expedicao||[]).forEach(r=>r[2]=null);
-  if(S.hhd)S.hhd.mov=[];
+  if(S.hhd){hhdHist();S.hhd.mov=[];}
   S.realizado={};S.ctlRec={};S.hcHora={};S.banc={};if(S.hh)Object.values(S.hh).forEach(o=>Object.values(o).forEach(L=>L.forEach(r=>r.real=null)));
   if(S.pdPend)S.pdPend={buffered:null,etqBranca:null};
 }
